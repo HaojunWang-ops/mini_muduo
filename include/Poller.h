@@ -26,18 +26,18 @@ namespace reactor
         Poller &operator=(const Poller &) = delete;
 
         Timestamp poll(int timeoutMs, ChannelList *activeChannels);
-        void upateChannel(Channel *channel);
+        void updateChannel(Channel *channel);
 
         void assertInLoopThread();
 
     private:
-        void fillActiveChannels(int numsevents, ChannelList *activeChannels);
+        void fillActiveChannels(int numsevents, ChannelList *activeChannels) const;
 
         typedef std::vector<struct pollfd> PollFdList;
         typedef std::map<int, Channel *> ChannelMap;
 
         EventLoop *owner_loop_;
         PollFdList Pollfds_;
-        ChannelMap channels_;
+        ChannelMap Channels_;
     };
 }

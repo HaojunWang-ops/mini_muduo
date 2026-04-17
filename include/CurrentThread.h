@@ -1,6 +1,8 @@
 #pragma once
 
 #include <sys/types.h>
+#include <string>
+#include <unistd.h>
 
 namespace reactor
 {
@@ -31,7 +33,9 @@ namespace reactor
             return t_threadName;
         }
 
-        bool isMainThread();
+        inline bool isMainThread(){return tid() == ::getpid();};
 
+
+        std::string stackTrace(bool demangle);
     }
 }

@@ -14,71 +14,69 @@ namespace reactor
 
     Timestamp Poller::poll(int timeoutMs, Poller::ChannelList *activeChannels)
     {
-        int numevents = ::poll(&*Pollfds_.begin(), Pollfds_.size(), -1);
-        LOG_INFO << Pollfds_.size();
-        if (numevents > 0)
+        Timestamp now(Timestamp::now());
+        int ret = ::poll(Pollfds_.data(), Pollfds_.size(), timeoutMs);
+        if (ret > 0)
         {
-            fillActiveChannels(numevents, activeChannels);
-            LOG_INFO << numevents << " events happened";
+            fillActiveChannels(ret, activeChannels);
+            LOG_INFO << ret << "fds active";
         }
-        else if (numevents == 0)
+        else if (ret == 0)
         {
-            LOG_INFO << "no event happened";
+            LOG_INFO << "0 fd active";
         }
         else
         {
-            LOG_FATAL << "Poller::poll";
+            LOG_ERROR << "Poller::poll error";
         }
-        Timestamp now(Timestamp::now());
         return now;
     }
 
-    void Poller::fillActiveChannels(int numevents, Poller::ChannelList *activeChannels)
+    void Poller::fillActiveChannels(int numevents, Poller::ChannelList *activeChannels) const
     {
-        for (size_t i = 0; i < Pollfds_.size() && numevents > 0; i++)
+        for (auto it = Pollfds_.begin(); it != Pollfds_.end() && numevents > 0; it++)
         {
-            if (Pollfds_[i].revents != 0)
+            if (it->revents)
             {
-                auto it = channels_.find(Pollfds_[i].fd);
-                assert(it != channels_.end());
-                Channel *channel = it->second;
-                assert(channel->fd() == Pollfds_[i].fd);
-                channel->set_revent(Pollfds_[i].revents);
-                Pollfds_[i].revents = 0;
+                assert(Channels_.find(it->fd) != Channels_.end());
+                Channel* channel = (Channels_.find(it->fd))->second;
+                assert(channel->fd() == it->fd);
+                channel->set_revent(it->revents);
                 activeChannels->push_back(channel);
                 --numevents;
             }
         }
     }
 
-    void Poller::upateChannel(Channel *channel)
+    void Poller::updateChannel(Channel *channel)
     {
         assertInLoopThread();
-        if (channel->index() == -1)
+        LOG_INFO <<  "Poller::updateChannel: " << "fd = " << channel->fd() << " events = " << channel->events();
+        int fd = channel->fd();
+        if (Channels_.find(fd) == Channels_.end())
         {
-            assert(channels_.find(channel->fd()) == channels_.end());
-            channel->set_index(Pollfds_.size());
-            channels_[channel->fd()] = channel;
+            assert(channel->index() < 0);
+            Channels_.insert({fd, channel});
+            int idx = static_cast<int> (Pollfds_.size());
+            channel->set_index(idx);
             struct pollfd pfd;
-            pfd.fd = channel->fd();
-            pfd.events = channel->events();
+            pfd.fd = fd;
+            pfd.events = static_cast<short>(channel->events());
             pfd.revents = 0;
             Pollfds_.push_back(pfd);
         }
         else
         {
-            auto it = channels_.find(channel->fd());
-            assert(it != channels_.end());
-            assert(it->second == channel);
+            assert(Channels_.find(channel->fd()) != Channels_.end());
+            assert(Channels_[channel->fd()] == channel);
             int idx = channel->index();
-            assert(0 <= idx && idx < static_cast<int>(Pollfds_.size()));
-            struct pollfd &pfd = Pollfds_[idx];
+            assert(0 <= idx && idx < static_cast<int> (Pollfds_.size()));
+            struct pollfd& pfd = Pollfds_[idx];
             assert(pfd.fd == channel->fd() || pfd.fd == -1);
-            pfd.events = channel->events();
+            pfd.events = static_cast<short>(channel->events());
             pfd.revents = 0;
-            if (channel->isNoneEvent())
-            {
-                pfd.fd = -1;
+            if (channel->isNoneEvent()){
+                pfd.fd = -1;   
             }
         }
     }

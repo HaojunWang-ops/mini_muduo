@@ -25,6 +25,8 @@ namespace reactor{
     private:
         typedef std::pair<Timestamp, Timer*> Entry;
         typedef std::set<Entry> TimerList;
+       
+        void addTimerInLoop(Timer* timer);
         
         void handleRead();
 
