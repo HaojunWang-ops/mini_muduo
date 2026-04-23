@@ -94,7 +94,7 @@ void Socket::setTcpNoDelay(bool on)
 #endif
 }
 
-void Socket::setResueAddr(bool on)
+void Socket::setReuseAddr(bool on)
 {
 #ifdef SO_REUSEADDR
     int optval = on ? 1 : 0;
@@ -113,7 +113,7 @@ void Socket::setResueAddr(bool on)
 }
 
 
-void Socket::setResuePort(bool on)
+void Socket::setReusePort(bool on)
 {
 #ifdef SO_REUSEPORT
     int optval = on ? 1 : 0;

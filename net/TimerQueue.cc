@@ -9,73 +9,78 @@
 
 namespace reactor
 {
-    namespace detail
+    namespace net
     {
-        int createTimerfd()
+        namespace detail
         {
-            int timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-            if (timerfd < 0)
+            int createTimerfd()
             {
-                LOG_ERROR << "createTimerfd() error, at timerfd_create";
+                int timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+                if (timerfd < 0)
+                {
+                    LOG_ERROR << "createTimerfd() error, at timerfd_create";
+                }
+                return timerfd;
             }
-            return timerfd;
-        }
 
-        struct timespec howMuchTimeFromNow(Timestamp when)
-        {
-            struct timespec tv;
-            int64_t microseconds = when.microSecondsSinceEpoch() - (Timestamp::now()).microSecondsSinceEpoch();
-            if (microseconds < 100)
+            struct timespec howMuchTimeFromNow(Timestamp when)
             {
-                microseconds = 100;
+                struct timespec tv;
+                int64_t microseconds = when.microSecondsSinceEpoch() - (Timestamp::now()).microSecondsSinceEpoch();
+                if (microseconds < 100)
+                {
+                    microseconds = 100;
+                }
+
+                tv.tv_sec = static_cast<time_t>(microseconds / Timestamp::kMicroSecondsPerSecond);
+                tv.tv_nsec = static_cast<long>(microseconds % Timestamp::kMicroSecondsPerSecond * 1000);
+
+                return tv;
             }
-            
-            tv.tv_sec = static_cast<time_t> (microseconds / Timestamp::kMicroSecondsPerSecond);
-            tv.tv_nsec = static_cast<long> (microseconds % Timestamp::kMicroSecondsPerSecond * 1000);
 
-            return tv;
-        }
-
-        void readTimerfd(int timerfd, Timestamp now)
-        {
-            uint64_t howmany;
-            int n = ::read(timerfd, &howmany, sizeof howmany);
-            LOG_INFO << now.toFormattedString() << " " << howmany << " in timerfd";
-            if (n != sizeof howmany)
+            void readTimerfd(int timerfd, Timestamp now)
             {
-                LOG_ERROR << "read " << n << " bytes from timerfd";
+                uint64_t howmany;
+                int n = ::read(timerfd, &howmany, sizeof howmany);
+                LOG_INFO << now.toFormattedString() << " " << howmany << " in timerfd";
+                if (n != sizeof howmany)
+                {
+                    LOG_ERROR << "read " << n << " bytes from timerfd";
+                }
             }
-        }
 
-        void resetTimerfd(int timerfd, Timestamp expiration)
-        {
-            struct itimerspec newvalue;
-            struct itimerspec oldvalue;
-
-            bzero(&newvalue, sizeof newvalue);
-            bzero(&oldvalue, sizeof oldvalue);
-
-            newvalue.it_value = howMuchTimeFromNow(expiration);
-
-            int ret = timerfd_settime(timerfd, 0, &newvalue, &oldvalue);
-            if (ret < 0)
+            void resetTimerfd(int timerfd, Timestamp expiration)
             {
-                LOG_ERROR << "resetTimerfd error, at timerfd_settime()";
+                struct itimerspec newvalue;
+                struct itimerspec oldvalue;
+
+                bzero(&newvalue, sizeof newvalue);
+                bzero(&oldvalue, sizeof oldvalue);
+
+                newvalue.it_value = howMuchTimeFromNow(expiration);
+
+                int ret = timerfd_settime(timerfd, 0, &newvalue, &oldvalue);
+                if (ret < 0)
+                {
+                    LOG_ERROR << "resetTimerfd error, at timerfd_settime()";
+                }
             }
         }
     }
 }
 
 using namespace reactor;
-using namespace reactor::detail;
+using namespace reactor::net;
+using namespace reactor::net::detail;
 
 TimerQueue::TimerQueue(EventLoop *loop)
     : loop_(loop),
       timerfd_(createTimerfd()),
       timerfdChannel_(loop_, timerfd_)
 {
-    timerfdChannel_.setReadCallback([this](){
-        handleRead();
+    timerfdChannel_.setReadCallback([this](Timestamp receivetime)
+    { 
+        handleRead(receivetime); 
     });
     timerfdChannel_.enableRead();
 }
@@ -92,10 +97,9 @@ TimerQueue::~TimerQueue()
 
 TimerId TimerQueue::addTimer(const TimerCallback &callback, Timestamp when, double interval)
 {
-    Timer* timer = new Timer(callback, when, interval);
-    loop_->runInLoop([this, timer](){
-        addTimerInLoop(timer);
-    });
+    Timer *timer = new Timer(callback, when, interval);
+    loop_->runInLoop([this, timer]()
+                     { addTimerInLoop(timer); });
     return TimerId(timer);
 }
 
@@ -103,13 +107,13 @@ void TimerQueue::addTimerInLoop(Timer *timer)
 {
     loop_->assertInLoopThread();
     bool earliestChange = insert(timer);
-    
+
     if (earliestChange)
     {
         resetTimerfd(timerfd_, timer->expiration());
     }
 }
-void TimerQueue::handleRead()
+void TimerQueue::handleRead(Timestamp receivetime)
 {
     loop_->assertInLoopThread();
     Timestamp now(Timestamp::now());
@@ -125,7 +129,7 @@ void TimerQueue::handleRead()
 std::vector<TimerQueue::Entry> TimerQueue::getExpired(Timestamp now)
 {
     std::vector<Entry> Expired;
-    Entry sentry = std::make_pair(now, reinterpret_cast<Timer*> (UINTPTR_MAX));
+    Entry sentry = std::make_pair(now, reinterpret_cast<Timer *>(UINTPTR_MAX));
     auto it = timers_.lower_bound(sentry);
     assert(it == timers_.end() || now < it->first);
     std::copy(timers_.begin(), it, std::back_inserter(Expired));
@@ -172,7 +176,7 @@ bool TimerQueue::insert(Timer *timer)
         earliestChange = true;
     }
 
-    std::pair<TimerList::iterator, bool> result = timers_.insert(std::pair<Timestamp, Timer*> (timer->expiration(), timer));
+    std::pair<TimerList::iterator, bool> result = timers_.insert(std::pair<Timestamp, Timer *>(timer->expiration(), timer));
     assert(result.second);
     return earliestChange;
 }

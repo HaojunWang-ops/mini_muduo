@@ -92,17 +92,19 @@ int sockets::createNonblockingOrDie(sa_family_t family)
 
 int sockets::connect(int sockfd, const struct sockaddr* addr)
 {
-    return ::connect(sockfd, addr, static_cast<socklen_t> (sizeof addr));
+    socklen_t addrlen = static_cast <socklen_t> (sizeof (struct sockaddr_in6));
+    return ::connect(sockfd, addr, addrlen);
 }
-void bindOrDie(int sockfd, const struct sockaddr* addr)
+void sockets::bindOrDie(int sockfd, const struct sockaddr* addr)
 {
-    int ret = ::bind(sockfd, addr, static_cast<socklen_t> (sizeof addr));
+    socklen_t addrlen = static_cast <socklen_t> (sizeof (struct sockaddr_in6));
+    int ret = ::bind(sockfd, addr, addrlen);
     if (ret < 0)
     {
         LOG_FATAL << "bindOrDie error, at bind";
     }
 }
-void listenOrDie(int sockfd)
+void sockets::listenOrDie(int sockfd)
 {
     int ret = ::listen(sockfd, SOMAXCONN);
     if (ret < 0)
@@ -114,7 +116,7 @@ void listenOrDie(int sockfd)
 //accept需要写入，传入参数用sockaddr_in6*,内存足够大
 int sockets::accept(int sockfd, struct sockaddr_in6* addr)
 {
-        socklen_t addrlen = static_cast<socklen_t> (sizeof addr);
+        socklen_t addrlen = static_cast<socklen_t> (sizeof *addr);
     #if VALGRIND || defined(NO_ACCEPT4)
         int connfd = ::accept(sockfd, sockets::sockaddr_cast(addr), &addrlen);
         setNonblockAndCloseOnExec(connfd);
@@ -123,8 +125,12 @@ int sockets::accept(int sockfd, struct sockaddr_in6* addr)
     #endif 
         if (connfd < 0)
         {
+            printf("accpet::connfd = %d", connfd);
             int savedErrno = errno;
-            LOG_ERROR << "Sockets::accept";
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+            {
+                LOG_ERROR << "accept error";
+            }
             switch (savedErrno)
             {
                 case EAGAIN:
@@ -133,6 +139,9 @@ int sockets::accept(int sockfd, struct sockaddr_in6* addr)
                 case EPROTO:
                 case EPERM:
                 case EMFILE:
+                    errno = savedErrno;
+                    break;
+                
                 case EBADF:
                 case EFAULT:
                 case EINVAL:
@@ -143,6 +152,7 @@ int sockets::accept(int sockfd, struct sockaddr_in6* addr)
                 case EOPNOTSUPP:
                     LOG_FATAL << "unexpected error of ::accept " << savedErrno;
                     break;
+                
                 default:
                     LOG_FATAL << "unknown error of ::accept " << savedErrno;
                     break;

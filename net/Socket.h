@@ -33,8 +33,8 @@ namespace reactor
             void shundownWrite();
 
             void setTcpNoDelay(bool on);
-            void setResueAddr(bool on);
-            void setResuePort(bool on);
+            void setReuseAddr(bool on);
+            void setReusePort(bool on);
             void setKeepAlive(bool on);
         
         private:
