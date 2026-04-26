@@ -23,6 +23,9 @@ namespace reactor
         const char* str_;
     };
 
+    //StringPiece不拥有数据，只是个轻量视图
+    //必须保证StringPiece的生命周期短于底层那段string或char
+    //不一定是null结尾
     class StringPiece
     {
     private:

@@ -5,14 +5,15 @@
 #include "logger.h"
 #include "TimerQueue.h"
 
+#include <signal.h>
 #include <assert.h>
 #include <sys/eventfd.h>
 
-namespace reactor
+using namespace reactor;
+using namespace reactor::net;
+namespace
 {
-    namespace net
-    {
-        __thread EventLoop *t_loopInThisThread = NULL;
+           __thread reactor::net::EventLoop *t_loopInThisThread = NULL;
         const int kPollTimeMs = 1000;
 
         static int createEventfd()
@@ -24,8 +25,23 @@ namespace reactor
                 abort();
             }
             return evtfd;
-        }
+        } 
 
+        #pragma GCC diagnostic ignored "-Wold-style-cast"
+        class IgnoreSigPipe
+        {
+        public:
+            IgnoreSigPipe()
+            {
+                ::signal(SIGPIPE, SIG_IGN);
+            }
+        };
+        #pragma GCC diagnostic error "-Wold-style-cast"
+}
+namespace reactor
+{
+    namespace net
+    {
         EventLoop::EventLoop()
             : looping_(false),
               quit_(false),

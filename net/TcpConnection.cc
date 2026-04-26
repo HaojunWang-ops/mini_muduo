@@ -4,6 +4,7 @@
 #include "Socket.h"
 #include "logger.h"
 #include "SocketsOps.h"
+#include "base/StringPiece.h"
 
 #include <memory>
 
@@ -57,6 +58,131 @@ namespace reactor
                 return "unknown state";
             }
         }
+        
+        void TcpConnection::send(const void* data, int len)
+        {
+            send(StringPiece(static_cast<const char*>(data), len));
+        }
+
+        void TcpConnection::send(const StringPiece& message)
+        {
+            if (state_ == kConnected)
+            {
+                if (loop_->isInLoopThread())
+                {
+                    sendInLoop(message);
+                }
+                else
+                {
+                    loop_->runInLoop([this, message](){
+                        this->sendInLoop(message.as_string());
+                    });
+                }
+            }
+        }
+
+        void TcpConnection::send(Buffer* buf)
+        {
+            if (state_ == kConnected)
+            {
+                if (loop_->isInLoopThread())
+                {
+                    sendInLoop(buf->peek(), buf->readableBytes());
+                    buf->retrieveAll();
+                }
+                else
+                {
+                    loop_->queueInLoop([conn = shared_from_this(), str = buf->retrieveAsString()](){
+                        conn->sendInLoop(str);
+                    });
+                }
+            }
+        }
+        void TcpConnection::sendInLoop(const StringPiece& message)
+        {
+            sendInLoop(message.data(), message.size());
+        }
+
+        void TcpConnection::sendInLoop(const void* data, size_t len)
+        {
+            loop_->assertInLoopThread();
+            ssize_t nwrote = 0;
+            size_t remaining = len;
+            bool faultError = false;
+            if (state_ == kDisconnected)
+            {
+                LOG_WARN << "disconnected, give up writing";
+                return ;
+            }
+            
+            if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0)
+            {
+                nwrote = sockets::write(channel_->fd(), data, len);
+                if (nwrote >= 0)
+                {
+                    remaining = len - nwrote;
+                    if (remaining == 0 && writeCompleteCallback_)
+                    {
+                        loop_->queueInLoop([conn = shared_from_this()]{
+                            conn->writeCompleteCallback_(conn);
+                        });
+                    }
+                }
+                else
+                {
+                    nwrote = 0;
+                    if (errno != EWOULDBLOCK)
+                    {
+                        LOG_ERROR << " sendInLoop() errno";
+                        if (errno == EPIPE || errno == ECONNRESET)
+                        {
+                            faultError = true;
+                        }
+                    }
+                }
+
+                assert(remaining <= len);
+                if (!faultError && remaining > 0)
+                {
+                    size_t oldLen = outputBuffer_.readableBytes();
+                    if (oldLen + remaining >= highWaterMark_ && oldLen < highWaterMark_ && highwaterMarkCallback_)
+                    {
+                        loop_->queueInLoop([conn = shared_from_this(), highWaterSize = oldLen + remaining](){
+                            conn->highwaterMarkCallback_(conn, highWaterSize);
+                        });
+                    }
+                    outputBuffer_.append((static_cast<const char*> (data)) + nwrote, remaining);
+                    if (!channel_->isWriting())
+                    {
+                        channel_->enableWrite();
+                    }
+                }
+            }
+        }
+
+        void TcpConnection::shutdown()
+        {
+            if (state_ == kConnected)
+            {
+                setState(kDisconnecting);
+                loop_->queueInLoop([this](){
+                    this->shutdownInLoop();
+                });
+            }
+        }
+
+        void TcpConnection::shutdownInLoop()
+        {
+            if (!channel_->isWriting())
+            {
+                socket_->shundownWrite();
+            }
+        }
+
+        void TcpConnection::setTcpNoDelay(bool on)
+        {
+            socket_->setTcpNoDelay(on);
+        }
 
         void TcpConnection::connectEstablished()
         {
@@ -79,15 +205,14 @@ namespace reactor
             loop_->removeChannel(channel_.get());
         }
 
-        void TcpConnection::handleRead(Timestamp receivetime)
+        void TcpConnection::handleRead(Timestamp receiveTime)
         {
             loop_->assertInLoopThread();
-            int savedError = 0;
-            char buf[4096];
-            ssize_t n = ::read(channel_->fd(), buf, sizeof(buf));
+            int savedErrno = 0;
+            ssize_t n = inputBuffer_.readFd(channel_->fd(), &savedErrno);
             if (n > 0)
             {
-
+                messageCallback_(shared_from_this(), &inputBuffer_, receiveTime);
             }
             else if (n == 0)
             {
@@ -95,7 +220,7 @@ namespace reactor
             }
             else
             {                
-                errno = savedError;
+                errno = savedErrno;
                 LOG_ERROR << "TcpConnection::handleRead()";
                 handleError();
             }

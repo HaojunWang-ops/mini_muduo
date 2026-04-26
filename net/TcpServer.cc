@@ -62,6 +62,8 @@ namespace reactor
             conn->setCloseCallback([this](const TcpConnectionPtr& tcpConnectionPtr){
                 this->removeConnection(tcpConnectionPtr);
             });
+            conn->setWriteCompleteCallback(writeCompleteCallback_);
+            conn->setHighWaterMarkCallback(highWaterMarkCallback_, highWaterMark_);
             conn->connectEstablished();
         }
 
