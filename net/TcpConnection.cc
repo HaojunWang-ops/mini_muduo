@@ -58,13 +58,13 @@ namespace reactor
                 return "unknown state";
             }
         }
-        
-        void TcpConnection::send(const void* data, int len)
+
+        void TcpConnection::send(const void *data, int len)
         {
-            send(StringPiece(static_cast<const char*>(data), len));
+            send(StringPiece(static_cast<const char *>(data), len));
         }
 
-        void TcpConnection::send(const StringPiece& message)
+        void TcpConnection::send(const StringPiece &message)
         {
             if (state_ == kConnected)
             {
@@ -74,14 +74,13 @@ namespace reactor
                 }
                 else
                 {
-                    loop_->runInLoop([this, message](){
-                        this->sendInLoop(message.as_string());
-                    });
+                    loop_->runInLoop([this, message]()
+                                     { this->sendInLoop(message.as_string()); });
                 }
             }
         }
 
-        void TcpConnection::send(Buffer* buf)
+        void TcpConnection::send(Buffer *buf)
         {
             if (state_ == kConnected)
             {
@@ -92,18 +91,17 @@ namespace reactor
                 }
                 else
                 {
-                    loop_->queueInLoop([conn = shared_from_this(), str = buf->retrieveAsString()](){
-                        conn->sendInLoop(str);
-                    });
+                    loop_->queueInLoop([conn = shared_from_this(), str = buf->retrieveAsString()]()
+                                       { conn->sendInLoop(str); });
                 }
             }
         }
-        void TcpConnection::sendInLoop(const StringPiece& message)
+        void TcpConnection::sendInLoop(const StringPiece &message)
         {
             sendInLoop(message.data(), message.size());
         }
 
-        void TcpConnection::sendInLoop(const void* data, size_t len)
+        void TcpConnection::sendInLoop(const void *data, size_t len)
         {
             loop_->assertInLoopThread();
             ssize_t nwrote = 0;
@@ -112,9 +110,9 @@ namespace reactor
             if (state_ == kDisconnected)
             {
                 LOG_WARN << "disconnected, give up writing";
-                return ;
+                return;
             }
-            
+
             if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0)
             {
                 nwrote = sockets::write(channel_->fd(), data, len);
@@ -123,9 +121,8 @@ namespace reactor
                     remaining = len - nwrote;
                     if (remaining == 0 && writeCompleteCallback_)
                     {
-                        loop_->queueInLoop([conn = shared_from_this()]{
-                            conn->writeCompleteCallback_(conn);
-                        });
+                        loop_->queueInLoop([conn = shared_from_this()]
+                                           { conn->writeCompleteCallback_(conn); });
                     }
                 }
                 else
@@ -147,11 +144,10 @@ namespace reactor
                     size_t oldLen = outputBuffer_.readableBytes();
                     if (oldLen + remaining >= highWaterMark_ && oldLen < highWaterMark_ && highwaterMarkCallback_)
                     {
-                        loop_->queueInLoop([conn = shared_from_this(), highWaterSize = oldLen + remaining](){
-                            conn->highwaterMarkCallback_(conn, highWaterSize);
-                        });
+                        loop_->queueInLoop([conn = shared_from_this(), highWaterSize = oldLen + remaining]()
+                                           { conn->highwaterMarkCallback_(conn, highWaterSize); });
                     }
-                    outputBuffer_.append((static_cast<const char*> (data)) + nwrote, remaining);
+                    outputBuffer_.append((static_cast<const char *>(data)) + nwrote, remaining);
                     if (!channel_->isWriting())
                     {
                         channel_->enableWrite();
@@ -165,9 +161,8 @@ namespace reactor
             if (state_ == kConnected)
             {
                 setState(kDisconnecting);
-                loop_->queueInLoop([this](){
-                    this->shutdownInLoop();
-                });
+                loop_->queueInLoop([this]()
+                                   { this->shutdownInLoop(); });
             }
         }
 
@@ -196,12 +191,16 @@ namespace reactor
         void TcpConnection::connectDestroyed()
         {
             loop_->assertInLoopThread();
+            printf("%s\n", stateToString());
             if (state_ == kConnected)
             {
                 setState(kDisconnected);
                 channel_->disableAll();
                 connectionCallback_(shared_from_this());
             }
+            LOG_INFO << "Ready to remove channel. FD = " << channel_->fd()
+                     << ", state_ = " << state_
+                     << ", events_ = " << channel_->events();
             loop_->removeChannel(channel_.get());
         }
 
@@ -219,7 +218,7 @@ namespace reactor
                 handleClose();
             }
             else
-            {                
+            {
                 errno = savedErrno;
                 LOG_ERROR << "TcpConnection::handleRead()";
                 handleError();
@@ -228,24 +227,57 @@ namespace reactor
 
         void TcpConnection::handlewrite()
         {
+            if (channel_->isWriting())
+            {
+                size_t n = sockets::write(channel_->fd(), outputBuffer_.peek(), outputBuffer_.readableBytes());
 
+                if (n > 0)
+                {
+                    outputBuffer_.retrieve(n);
+
+                    if (outputBuffer_.readableBytes())
+                    {
+                        channel_->disableWriting();
+                        if (writeCompleteCallback_)
+                        {
+                            loop_->queueInLoop([conn = shared_from_this()](){
+                                conn->writeCompleteCallback_(conn);
+                            });
+                        }
+
+                        if (state_ == kDisconnecting)
+                        {
+                            shutdownInLoop();
+                        }
+                    }
+                }
+                else
+                {
+                    LOG_ERROR << "TcpConnection::handleWrite()";
+                }
+            }
+            else
+            {
+                LOG_ERROR << "TcpConnection::handleWrite()";
+            }
         }
 
         void TcpConnection::handleError()
         {
             int err = sockets::getSocketError(channel_->fd());
             LOG_ERROR << "TcpConnection::handleError [" << name_
-                << "] - SO_ERROR = " << err << " " << strerror(err); 
+                      << "] - SO_ERROR = " << err << " " << strerror(err);
         }
 
         void TcpConnection::handleClose()
         {
             loop_->assertInLoopThread();
-            LOG_INFO << "fd = " << channel_->fd() << " state = " << stateToString();
             assert(state_ == kConnected || state_ == kConnecting);
             setState(kDisconnected);
             channel_->disableAll();
-
+            LOG_INFO << "Ready to remove channel. FD = " << channel_->fd()
+                     << ", state_ = " << state_
+                     << ", events_ = " << channel_->events();
             TcpConnectionPtr guardThis(shared_from_this());
             connectionCallback_(guardThis);
             closeCallback_(guardThis);

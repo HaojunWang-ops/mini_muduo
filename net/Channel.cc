@@ -59,6 +59,8 @@ namespace reactor
                 if (writeCallback_)
                     writeCallback_();
             }
+
+            eventHandling_ = false;
         }
     }
 }

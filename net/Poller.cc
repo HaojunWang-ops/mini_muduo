@@ -52,7 +52,8 @@ namespace reactor
             }
         }
 
-        void Poller::updateChannel(Channel *channel)
+        void Poller::updateChannel(Channel *channel) // 修改pollfds中的事件，不对channel中的事件修改
+                                                     // 修改channel中的事件，在enable disable函数 和 fillActivityChannel函数中
         {
             assertInLoopThread();
             LOG_INFO << "Poller::updateChannel: " << "fd = " << channel->fd() << " events = " << channel->events();
@@ -71,22 +72,26 @@ namespace reactor
             }
             else
             {
-                assert(Channels_.find(channel->fd()) != Channels_.end());
-                assert(Channels_[channel->fd()] == channel);
+                assert(Channels_.find(fd) != Channels_.end());
+                assert(Channels_[fd] == channel);
                 int idx = channel->index();
                 assert(0 <= idx && idx < static_cast<int>(Pollfds_.size()));
                 struct pollfd &pfd = Pollfds_[idx];
-                assert(pfd.fd == channel->fd() || pfd.fd == -1);
+                assert(pfd.fd == fd || pfd.fd == -fd - 1);
                 pfd.events = static_cast<short>(channel->events());
                 pfd.revents = 0;
                 if (channel->isNoneEvent())
                 {
-                    pfd.fd = -channel->fd() - 1;//poll忽略Pollfds_中负数的fd
+                    pfd.fd = -fd - 1; // poll忽略Pollfds_中负数的fd
+                }
+                else
+                {
+                    pfd.fd = fd;
                 }
             }
         }
 
-        void Poller::removeChannel(Channel* channel)
+        void Poller::removeChannel(Channel *channel)
         {
             assertInLoopThread();
             LOG_INFO << "fd = " << channel->fd();
@@ -96,10 +101,12 @@ namespace reactor
 
             int idx = channel->index();
             assert(0 <= idx && idx < static_cast<int>(Pollfds_.size()));
-            const struct pollfd& pfd = Pollfds_[idx];
-            assert(pfd.fd == -channel->fd() - 1 && pfd.events == channel->events()); (void)pfd;//是否已经disableAll()
+            const struct pollfd &pfd = Pollfds_[idx];
+            assert(pfd.fd == -channel->fd() - 1 && pfd.events == channel->events());
+            (void)pfd; // 是否已经disableAll()
             ssize_t n = Channels_.erase(channel->fd());
-            assert(n == 1); (void) n;
+            assert(n == 1);
+            (void)n;
             if (implicit_cast<size_t>(idx) == Pollfds_.size() - 1)
             {
                 Pollfds_.pop_back();
@@ -107,12 +114,12 @@ namespace reactor
             else
             {
                 int channelAtEnd = Pollfds_.back().fd;
-                if (channelAtEnd < 0) //判断最后一个fd的正负
+                if (channelAtEnd < 0) // 判断最后一个fd的正负
                 {
-                    channelAtEnd = -channelAtEnd - 1; 
+                    channelAtEnd = -channelAtEnd - 1;
                 }
                 std::iter_swap(Pollfds_.begin() + idx, Pollfds_.end() - 1);
-                Channels_[channelAtEnd] = channel;
+                Channels_[channelAtEnd]->set_index(idx);
                 Pollfds_.pop_back();
             }
         }

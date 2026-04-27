@@ -32,7 +32,10 @@ namespace reactor
             void enableRead() { events_ |= kReadEvent; update(); }
             void enableWrite() { events_ |= kWriteEvent; update(); }
             void disableWriting() {events_ &= ~kWriteEvent; update(); }
-            void disableAll() {events_ = kNoneEvent; update(); }
+            void disableAll() {
+                events_ = kNoneEvent; 
+                update(); 
+            }
             bool isWriting() const { return events_ & kWriteEvent; }
             
             int fd() { return fd_; }
@@ -42,7 +45,7 @@ namespace reactor
             void set_index(int index) { index_ = index; }
             void set_revent(int revents) { revents_ = revents; }
 
-            bool isNoneEvent() { return revents_ == kNoneEvent; }
+            bool isNoneEvent() { return events_ == kNoneEvent; }
         private:
             EventLoop *ownerLoop_;
             int fd_;
