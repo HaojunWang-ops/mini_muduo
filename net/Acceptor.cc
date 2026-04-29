@@ -1,6 +1,6 @@
 #include "Acceptor.h"
 
-#include "logger.h"
+#include "Logging.h"
 #include "InetAddress.h"
 #include "SocketsOps.h"
 #include "Channel.h"
@@ -80,7 +80,7 @@ namespace reactor
                     }
                     else
                     {
-                        LOG_ERROR << "Acceptor::handleReand() failed, at accept";
+                        LOG_SYSERR << "Acceptor::handleReand() failed, at accept";
                     }
                 }  
             }

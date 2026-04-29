@@ -27,11 +27,11 @@ namespace reactor
             }
             else if (ret == 0)
             {
-                LOG_INFO << "0 fd active";
+                LOG_TRACE << "0 fd active";
             }
             else
             {
-                LOG_ERROR << "Poller::poll error";
+                LOG_SYSERR << "Poller::poll error";
             }
             return now;
         }
@@ -56,7 +56,7 @@ namespace reactor
                                                      // 修改channel中的事件，在enable disable函数 和 fillActivityChannel函数中
         {
             assertInLoopThread();
-            LOG_INFO << "Poller::updateChannel: " << "fd = " << channel->fd() << " events = " << channel->events();
+            LOG_TRACE << "Poller::updateChannel: " << "fd = " << channel->fd() << " events = " << channel->events();
             int fd = channel->fd();
             if (Channels_.find(fd) == Channels_.end())
             {
@@ -94,7 +94,7 @@ namespace reactor
         void Poller::removeChannel(Channel *channel)
         {
             assertInLoopThread();
-            LOG_INFO << "fd = " << channel->fd();
+            LOG_TRACE << "fd = " << channel->fd();
             assert(Channels_.find(channel->fd()) != Channels_.end());
             assert(Channels_[channel->fd()] == channel);
             assert(channel->isNoneEvent());

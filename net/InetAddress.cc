@@ -1,6 +1,6 @@
 #include "InetAddress.h"
 
-#include "logger.h"
+#include "Logging.h"
 #include "Endian.h"
 #include "SocketsOps.h"
 
@@ -100,7 +100,7 @@ bool InetAddress::resolve(StringArg hostname, InetAddress* out)
     int ret = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
     if (ret != 0)
     {
-        LOG_ERROR << "InetAddress::resolve error " << hostname.c_str() << " " << gai_strerror(ret);
+        LOG_SYSERR << "InetAddress::resolve error " << hostname.c_str() << " " << gai_strerror(ret);
         return false;
     }
     

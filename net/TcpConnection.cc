@@ -2,7 +2,7 @@
 #include "Channel.h"
 #include "EventLoop.h"
 #include "Socket.h"
-#include "logger.h"
+#include "Logging.h"
 #include "SocketsOps.h"
 #include "base/StringPiece.h"
 
@@ -22,7 +22,7 @@ namespace reactor
               localAddr_(localAddr),
               peerAddr_(peerAddr)
         {
-            LOG_INFO << "TcpConnection::ctor[" << name_ << "] at " << this
+            LOG_TRACE << "TcpConnection::ctor[" << name_ << "] at " << this
                      << " fd=" << connfd;
 
             channel_->setReadCallback([this](Timestamp receiveTime)
@@ -38,7 +38,7 @@ namespace reactor
 
         TcpConnection::~TcpConnection()
         {
-            LOG_INFO << "TcpConnection::dtor[" << name_ << "] at " << this
+            LOG_TRACE << "TcpConnection::dtor[" << name_ << "] at " << this
                      << " fd=" << channel_->fd();
         }
 
@@ -130,7 +130,7 @@ namespace reactor
                     nwrote = 0;
                     if (errno != EWOULDBLOCK)
                     {
-                        LOG_ERROR << " sendInLoop() errno";
+                        LOG_SYSERR << " sendInLoop() errno";
                         if (errno == EPIPE || errno == ECONNRESET)
                         {
                             faultError = true;
@@ -191,14 +191,13 @@ namespace reactor
         void TcpConnection::connectDestroyed()
         {
             loop_->assertInLoopThread();
-            printf("%s\n", stateToString());
             if (state_ == kConnected)
             {
                 setState(kDisconnected);
                 channel_->disableAll();
                 connectionCallback_(shared_from_this());
             }
-            LOG_INFO << "Ready to remove channel. FD = " << channel_->fd()
+            LOG_TRACE << "Ready to remove channel. FD = " << channel_->fd()
                      << ", state_ = " << state_
                      << ", events_ = " << channel_->events();
             loop_->removeChannel(channel_.get());
@@ -220,7 +219,7 @@ namespace reactor
             else
             {
                 errno = savedErrno;
-                LOG_ERROR << "TcpConnection::handleRead()";
+                LOG_SYSERR << "TcpConnection::handleRead()";
                 handleError();
             }
         }
@@ -253,19 +252,19 @@ namespace reactor
                 }
                 else
                 {
-                    LOG_ERROR << "TcpConnection::handleWrite()";
+                    LOG_SYSERR << "TcpConnection::handleWrite()";
                 }
             }
             else
             {
-                LOG_ERROR << "TcpConnection::handleWrite()";
+                LOG_SYSERR<< "TcpConnection::handleWrite()";
             }
         }
 
         void TcpConnection::handleError()
         {
             int err = sockets::getSocketError(channel_->fd());
-            LOG_ERROR << "TcpConnection::handleError [" << name_
+            LOG_SYSERR<< "TcpConnection::handleError [" << name_
                       << "] - SO_ERROR = " << err << " " << strerror(err);
         }
 

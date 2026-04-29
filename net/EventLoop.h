@@ -1,6 +1,6 @@
 #pragma once
 
-#include "logger.h"
+#include "Logging.h"
 #include "CurrentThread.h"
 #include "TimerId.h"
 #include "Callbacks.h"

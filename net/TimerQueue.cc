@@ -1,5 +1,5 @@
 #include "TimerQueue.h"
-#include "logger.h"
+#include "Logging.h"
 #include "Timer.h"
 #include "EventLoop.h"
 
@@ -18,7 +18,7 @@ namespace reactor
                 int timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
                 if (timerfd < 0)
                 {
-                    LOG_ERROR << "createTimerfd() error, at timerfd_create";
+                    LOG_SYSERR << "createTimerfd() error, at timerfd_create";
                 }
                 return timerfd;
             }
@@ -45,7 +45,7 @@ namespace reactor
                 LOG_INFO << now.toFormattedString() << " " << howmany << " in timerfd";
                 if (n != sizeof howmany)
                 {
-                    LOG_ERROR << "read " << n << " bytes from timerfd";
+                    LOG_SYSERR << "read " << n << " bytes from timerfd";
                 }
             }
 
@@ -62,7 +62,7 @@ namespace reactor
                 int ret = timerfd_settime(timerfd, 0, &newvalue, &oldvalue);
                 if (ret < 0)
                 {
-                    LOG_ERROR << "resetTimerfd error, at timerfd_settime()";
+                    LOG_SYSERR << "resetTimerfd error, at timerfd_settime()";
                 }
             }
         }

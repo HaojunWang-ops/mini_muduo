@@ -10,10 +10,16 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fsanitize=address -fno-omit-fram
 find_package(Threads REQUIRED)
 
 add_library(mini_muduo STATIC
+    base/AsyncLogging.cc
+    base/LogFile.cc
+    base/LogStream.cc
     base/Condition.cc
     base/CountDownLatch.cc
     base/CurrentThread.cc
     base/Exception.cc
+    base/Logging.cc
+    base/FileUtil.cc
+    base/ProcessInfo.cc
     base/Thread.cc
     base/Timestamp.cc
     

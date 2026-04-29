@@ -81,7 +81,7 @@ namespace reactor{
     private:
         friend class Condition;
         
-        class UnassignGuard : noncopyable
+        class UnassignGuard : noncopyable   //RALL, 自动实现holder_的所有权处理
         {
         public:
             explicit UnassignGuard(MutexLock& owner)

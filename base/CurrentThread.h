@@ -23,6 +23,11 @@ namespace reactor
             return t_cachedTid;
         }
 
+        inline const char* tidString()
+        {
+            return t_tidString;
+        }
+
         inline int tidStringLength()
         {
             return t_tidStringLength;

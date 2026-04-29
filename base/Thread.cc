@@ -1,5 +1,5 @@
 #include "Thread.h"
-#include "logger.h"
+#include "Logging.h"
 #include "CurrentThread.h"
 #include "Exception.h"
 
@@ -141,7 +141,7 @@ namespace reactor
         {
             started_ = false;
             delete data;
-            LOG_ERROR << "Thread::start error, at pthread_create";
+            LOG_SYSFATAL<< "Thread::start error, at pthread_create";
         }
         else
         {

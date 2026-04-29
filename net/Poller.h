@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Timestamp.h"
-#include "logger.h"
+#include "Logging.h"
 
 #include <vector>
 #include <map>

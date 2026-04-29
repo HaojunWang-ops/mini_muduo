@@ -2,7 +2,7 @@
 #include "Poller.h"
 #include "Channel.h"
 #include "CurrentThread.h"
-#include "logger.h"
+#include "Logging.h"
 #include "TimerQueue.h"
 
 #include <signal.h>
@@ -11,9 +11,10 @@
 
 using namespace reactor;
 using namespace reactor::net;
+
 namespace
 {
-           __thread reactor::net::EventLoop *t_loopInThisThread = NULL;
+        __thread reactor::net::EventLoop *t_loopInThisThread = NULL;
         const int kPollTimeMs = 1000;
 
         static int createEventfd()
@@ -21,7 +22,7 @@ namespace
             int evtfd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
             if (evtfd < 0)
             {
-                LOG_ERROR << "EventLoop::createEventfd error, at eventfd";
+                LOG_SYSERR << "EventLoop::createEventfd error, at eventfd";
                 abort();
             }
             return evtfd;
@@ -54,7 +55,7 @@ namespace reactor
               wakeupChannel_(new Channel(this, wakeupFd_)),
               mutex_()
         {
-            LOG_INFO << "EventLoop created " << this << " in thread " << threadId_;
+            LOG_DEBUG << "EventLoop created " << this << " in thread " << threadId_;
             if (t_loopInThisThread)
             {
                 LOG_FATAL << "Another EventLoop " << t_loopInThisThread
@@ -93,7 +94,7 @@ namespace reactor
                 }
                 deoPendingFunctors();
             }
-            LOG_INFO << "EventLoop " << this << " stopped";
+            LOG_TRACE << "EventLoop " << this << " stopped";
             looping_ = false;
         }
 

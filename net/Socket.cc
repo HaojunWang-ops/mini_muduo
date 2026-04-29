@@ -1,6 +1,6 @@
 #include "Socket.h"
 
-#include "logger.h"
+#include "Logging.h"
 #include "InetAddress.h"
 #include "SocketsOps.h"
 
@@ -84,7 +84,7 @@ void Socket::setTcpNoDelay(bool on)
                  &optval, static_cast<socklen_t> (sizeof optval));
     if (ret < 0 && on)
     {
-        LOG_ERROR << "TCP_NONDELAY failed";
+        LOG_SYSERR << "TCP_NONDELAY failed";
     }
 #else
     if (on)
@@ -102,7 +102,7 @@ void Socket::setReuseAddr(bool on)
                  &optval, static_cast<socklen_t> (sizeof optval));
     if (ret < 0 && on)
     {
-        LOG_ERROR << "SO_REUSEADDR failed";
+        LOG_SYSERR << "SO_REUSEADDR failed";
     }
 #else
     if (on)
@@ -121,7 +121,7 @@ void Socket::setReusePort(bool on)
                  &optval, static_cast<socklen_t> (sizeof optval));
     if (ret < 0 && on)
     {
-        LOG_ERROR << "SO_REUSEPORT failed";
+        LOG_SYSERR << "SO_REUSEPORT failed";
     }
 #else
     if (on)
