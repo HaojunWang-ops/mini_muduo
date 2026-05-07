@@ -38,6 +38,11 @@ namespace reactor
             }
         }
 
+
+        //设置TcpConnection初始化的各个参数
+        //把TcpConnection加到map里面
+        //给TcpConnection绑定回调函数
+        //调用TcpConnection的connectEstablished()
         void TcpServer::newConnection(int connfd, const InetAddress &peerAddr)
         {
 
@@ -64,6 +69,8 @@ namespace reactor
             conn->connectEstablished();
         }
 
+
+        //
         void TcpServer::removeConnection(const TcpConnectionPtr &conn)
         {
             loop_->runInLoop([this, conn]()
@@ -76,12 +83,12 @@ namespace reactor
             LOG_INFO << "TcpServer::removeConnectionInLoop [" << name_
                      << "] - connection " << conn->name();
 
-            size_t n = connections_.erase(conn->name());
+            size_t n = connections_.erase(conn->name()); //先在TcpServer中把map里面的TcpConnection拿掉
             assert(n == 1);
             (void)n;
 
             loop_->queueInLoop([this, conn]()
-                               { conn->connectDestroyed(); });
+                               { conn->connectDestroyed(); }); //到线程中去remove channel
         }
     }
 }

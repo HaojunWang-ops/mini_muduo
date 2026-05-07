@@ -118,6 +118,7 @@ namespace reactor
                 writeIndex_ += len;
             }
 
+            //在prependalbe部分添加头部
             void prepend(const void* data, size_t len)
             {
                 assert(len <= prependableBytes());
@@ -126,6 +127,7 @@ namespace reactor
                 std::copy(d, d + len, begin() + readIndex_);
             }
 
+            //将扩大后的vector缩小
             void shrink(size_t reserve)
             {
                 std::vector<char> buf(kCheapPrepend + readableBytes() + reserve);

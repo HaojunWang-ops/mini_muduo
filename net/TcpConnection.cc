@@ -91,8 +91,8 @@ namespace reactor
                 }
                 else
                 {
-                    loop_->queueInLoop([conn = shared_from_this(), str = buf->retrieveAsString()]()
-                                       { conn->sendInLoop(str); });
+                    loop_->runInLoop([this, str = buf->retrieveAsString()]()
+                                       { this->sendInLoop(str); });
                 }
             }
         }
@@ -113,6 +113,7 @@ namespace reactor
                 return;
             }
 
+            //如果没有关注写事件，并且写缓冲区是空的
             if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0)
             {
                 nwrote = sockets::write(channel_->fd(), data, len);
@@ -127,7 +128,7 @@ namespace reactor
                 }
                 else
                 {
-                    nwrote = 0;
+                    nwrote = 0;   //nwrote = 0,为了后面remaing += wrote的时候，不会加负数
                     if (errno != EWOULDBLOCK)
                     {
                         LOG_SYSERR << " sendInLoop() errno";
@@ -156,6 +157,7 @@ namespace reactor
             }
         }
 
+        //半关闭状态，关闭写端
         void TcpConnection::shutdown()
         {
             if (state_ == kConnected)
@@ -179,6 +181,9 @@ namespace reactor
             socket_->setTcpNoDelay(on);
         }
 
+        //与构造函数分开
+        //原因：1.获取shared_from_this(),必须等到构造函数完成
+        //2.channel_->enableRead()要在子线程运行
         void TcpConnection::connectEstablished()
         {
             loop_->assertInLoopThread();
@@ -188,6 +193,8 @@ namespace reactor
             connectionCallback_(shared_from_this());
         }
 
+        //conncectDestroyed负责channel的处理
+        //先disableAll(),然后removeChannel()
         void TcpConnection::connectDestroyed()
         {
             loop_->assertInLoopThread();

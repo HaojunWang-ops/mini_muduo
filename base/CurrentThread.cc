@@ -29,6 +29,7 @@ namespace reactor
             if (strings)
             {
                 size_t len = 256;
+                //提前分配好内存，abi::__cxa_demangle的时候，不用反复malloc
                 char* demangled = demangle ? static_cast<char*>(::malloc(len)) : nullptr;
                 for (int i = 1; i < nptrs; i++)
                 {
@@ -47,7 +48,7 @@ namespace reactor
                         }
 
                         if (left_par && plus){
-                            *plus = '\0';
+                            *plus = '\0';  //给abi::__cxa_demangle()准备字符串
                             int status = 0;
                             char* ret = abi::__cxa_demangle(left_par + 1, demangled, &len, &status);
                             *plus = '+';
@@ -64,7 +65,8 @@ namespace reactor
                     stack.append(strings[i]);
                     stack.push_back('\n');
                 }
-                free(demangled);
+                //释放内存
+                free(demangled); 
                 free(strings);   
             }
             return stack;

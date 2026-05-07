@@ -44,7 +44,9 @@ namespace reactor
                 highwaterMarkCallback_ = cb; 
                 highWaterMark_ = highWaterMark;
             }
+            
 
+            //TcpServer::removeConnection()
             void setCloseCallback(const CloseCallback& cb)
             { closeCallback_ = cb; } 
            
@@ -68,7 +70,9 @@ namespace reactor
             enum stateE {kConnecting, kConnected, kDisconnected, kDisconnecting};
 
             void setState(stateE s) {state_ = s; }
-            void handleRead(Timestamp receiveTime);
+
+            //给channel设置的回调函数
+            void handleRead(Timestamp receiveTime);   
             void handlewrite();
             void handleClose();
             void handleError();

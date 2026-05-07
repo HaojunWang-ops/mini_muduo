@@ -13,7 +13,7 @@ const size_t Buffer::kInitialSize;
 
 ssize_t Buffer::readFd(int fd, int *savedErrno)
 {
-    char extrabuf[65536];
+    char extrabuf[65536];//分配在线程栈上的空间
     struct iovec vec[2];
     const size_t writeable = writeableBytes();
     vec[0].iov_base = begin() + writeIndex_;

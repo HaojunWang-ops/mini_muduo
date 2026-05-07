@@ -24,6 +24,10 @@ namespace reactor{
     inline To down_cast(From* f)
     {
         if (false){
+            //Animal* animal = new Cat();
+            //Cat* my_cat = down_cast<Cat*> (animal);
+            //To = cat*;
+            //From = Animal;
             implicit_cast<From*, To> (0);
         }
 

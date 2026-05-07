@@ -38,8 +38,8 @@ namespace reactor{
 
         bool started_;
         bool joined_;
-        pthread_t pthreadId_;
-        pid_t tid_;
+        pthread_t pthreadId_;  //pthread_self(), 线程的句柄
+        pid_t tid_;            //syscall(SYS_gettid)
         ThreadFunc func_;
         string name_;
         CountDownLatch latch_;

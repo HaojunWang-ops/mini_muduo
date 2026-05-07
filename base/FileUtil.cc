@@ -24,6 +24,8 @@ FileUtil::AppendFile::~AppendFile()
     ::fclose(fp_);
 }
 
+
+//最底层，负责系统调用将字符串写到fp_中
 void FileUtil::AppendFile::append(const char* logline, size_t len)
 {
     size_t written = 0;

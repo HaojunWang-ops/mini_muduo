@@ -38,9 +38,9 @@ namespace reactor
                 highWaterMark_ = highWaterMark;
             }
         private:
-            void newConnection(int connfd, const InetAddress& peeraddr);
-            void removeConnection(const TcpConnectionPtr& conn);
-            void removeConnectionInLoop(const TcpConnectionPtr& conn);
+            void newConnection(int connfd, const InetAddress& peeraddr);    //给Acceptor的，Acceptor创建新连接后，交给TcpServer处理
+            void removeConnection(const TcpConnectionPtr& conn);            //给TcpConnection,TcpConnection销毁时，需要通过TcpServer来remove
+            void removeConnectionInLoop(const TcpConnectionPtr& conn);      
             
             typedef std::map<std::string, TcpConnectionPtr> ConnectionMap;
 
@@ -48,7 +48,7 @@ namespace reactor
             const std::string name_;
             std::unique_ptr<Acceptor> acceptor_;
             
-            ConnectionCallback connectionCallback_;
+            ConnectionCallback connectionCallback_;                         //TcpConnection的各种回调函数，通过TcpServer来绑定给TcpConnection
             MessageCallback messageCallback_;
             WriteCompleteCallback writeCompleteCallback_;
             HighWaterMarkCallback highWaterMarkCallback_;

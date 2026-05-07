@@ -70,6 +70,8 @@ namespace reactor
         static void setFlush(FlushFunc);
         static void setOutput(OutputFunc);
     private:
+
+        //真正负责将内容append到LogStream中
         class Impl
         {
         public:

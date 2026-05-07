@@ -62,7 +62,7 @@ namespace reactor
                 latch_->countDown();
                 latch_ = nullptr;
 
-                CurrentThread::t_threadName = name_.empty() ? "reactorTHread" : name_.c_str();
+                CurrentThread::t_threadName = name_.empty() ? "reactorThread" : name_.c_str();
                 ::prctl(PR_SET_NAME, CurrentThread::t_threadName);
                 try
                 {

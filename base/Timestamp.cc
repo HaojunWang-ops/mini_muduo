@@ -21,8 +21,8 @@ namespace reactor
     {
         char buf[64] = {};
         time_t seconds = static_cast<time_t>(microSecondsSinceEpoch_ / kMicroSecondsPerSecond);
-        struct tm tm_time;
-        localtime_r(&seconds, &tm_time);
+        struct tm tm_time;  
+        localtime_r(&seconds, &tm_time);  //1900年起的年份，月份 + 1
 
         if (showMicroseconds)
         {
@@ -45,7 +45,7 @@ namespace reactor
     {
         struct timeval tv;
         gettimeofday(&tv, NULL);
-        int64_t seconds = tv.tv_sec;
+        int64_t seconds = tv.tv_sec;   //1970起的秒数
         return Timestamp(seconds * kMicroSecondsPerSecond + tv.tv_usec);
     }
 }

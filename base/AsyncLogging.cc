@@ -53,7 +53,7 @@ void AsyncLogging::threadFunc()
 {
     assert(running_ == true);
     LogFile output(basename_, rollSize_, false);
-    latch_.countDown();
+    latch_.countDown();  
     BufferPtr newBuffer1(new Buffer);
     BufferPtr newBuffer2(new Buffer);
     newBuffer1->bzero();
@@ -74,8 +74,9 @@ void AsyncLogging::threadFunc()
             }
 
             buffersToWrite.swap(buffers_);
-            buffersToWrite.push_back(std::move(currentBuffer_));
+            buffersToWrite.push_back(std::move(currentBuffer_));  //不管currentBUffer有没有写完，都要加到buffersToWrite中
 
+            //只会有currentBuffer_ 和 nextBuffer_ 等待赋值
             currentBuffer_ = std::move(newBuffer1);
             if (!nextBuffer_)
             {
@@ -85,6 +86,7 @@ void AsyncLogging::threadFunc()
 
         assert(!buffersToWrite.empty());
 
+        //前端append太多，只保留前两个Buffer
         if (buffersToWrite.size() >= 25)
         {
             char buf[100];

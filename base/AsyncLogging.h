@@ -31,7 +31,7 @@ namespace reactor
         {
             running_ = true;
             thread_.start();
-            latch_.wait();
+            latch_.wait();   //等待threadFunc()初始化output
         }
 
         void stop()

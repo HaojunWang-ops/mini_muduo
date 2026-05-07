@@ -38,10 +38,10 @@ namespace reactor
             int count_;
 
             std::unique_ptr<MutexLock> mutex_;
-            time_t startOfPeriod;
+            time_t startOfPeriod;    //当前时间所在天的零点所对应的秒数
             time_t lastRoll_;
             time_t lastFlush_;
-            std::unique_ptr<FileUtil::AppendFile> file_;   //保证fp_的fclose吗
+            std::unique_ptr<FileUtil::AppendFile> file_;   
 
             const static int kRollPerSeconds_ = 60*60*24;
     };

@@ -24,6 +24,7 @@ namespace reactor
         const char digitsHex[] = "0123456789ABCDEF";
         static_assert(sizeof(digitsHex) == 17, "wrong number of digitsHex");
 
+        //转换各种数字类型的
         template <typename T>
         size_t convert(char buf[], T value)
         {
@@ -47,6 +48,7 @@ namespace reactor
             return p - buf;
         }
 
+        //转换指针
         size_t convertHex(char buf[], uintptr_t value)
         {
             uintptr_t i = value;
@@ -199,7 +201,7 @@ void LogStream::staticCheck()
 template<typename T>
 void LogStream::formatInteger(T v)
 //将各种整数类型转化为字符串，append到buffer_中
-//convert实现append，手动add移动指针
+//调用convert实现append，手动add移动指针
 {
     if (buffer_.avail() >= kMaxNumericSize)
     {
@@ -299,7 +301,6 @@ Fmt::Fmt(const char* fmt, T val)
     static_assert(std::is_arithmetic<T>::value == true, "Must be arithmetci type");
 
     length_ = snprintf(buf_, sizeof buf_, fmt ,val);
-
     //防止出现length太大 和 =-1 的情况
     assert(static_cast<size_t> (length_) < sizeof buf_); 
 }

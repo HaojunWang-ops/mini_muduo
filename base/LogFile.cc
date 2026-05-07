@@ -85,6 +85,7 @@ void LogFile::append_unlock(const char* logline, int len)
     }
 }
 
+
 bool LogFile::rollFile()
 {
     time_t now = 0;
@@ -96,7 +97,7 @@ bool LogFile::rollFile()
         lastRoll_ = now;
         lastFlush_ = now;
         startOfPeriod = start;
-        file_.reset(new FileUtil::AppendFile(filename));
+        file_.reset(new FileUtil::AppendFile(filename));  //获得新的指针
         return true;
     }
     return false;
@@ -111,11 +112,11 @@ string LogFile::getLogFileName(const string& basename, time_t *now)
     char timebuf[32];
     struct tm tm_t;
     *now = ::time(NULL);
-    gmtime_r(now, &tm_t);
-    strftime(timebuf, sizeof timebuf, ".%Y%m%d- %H%M%S", &tm_t);
+    localtime_r(now, &tm_t);
+    strftime(timebuf, sizeof timebuf, ".%Y-%m-%d %H:%M:%S", &tm_t);
     filename += timebuf;
 
-    filename+=".log";
+    filename += ".log";
 
     return filename;
 }

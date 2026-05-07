@@ -8,6 +8,7 @@
 
 namespace reactor
 {
+    //
     class StringArg
     {
     public:
