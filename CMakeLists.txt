@@ -19,7 +19,6 @@ add_library(mini_muduo STATIC
     base/Exception.cc
     base/Logging.cc
     base/FileUtil.cc
-    base/ProcessInfo.cc
     base/Thread.cc
     base/Timestamp.cc
     
@@ -28,6 +27,7 @@ add_library(mini_muduo STATIC
     net/Channel.cc
     net/EventLoop.cc
     net/EventLoopThread.cc
+    net/EventLoopThreadPool.cc
     net/InetAddress.cc
     net/Poller.cc
     net/Socket.cc

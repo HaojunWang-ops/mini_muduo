@@ -7,12 +7,14 @@ namespace reactor
 {
     namespace net
     {
-        EventLoopThread::EventLoopThread()
+        EventLoopThread::EventLoopThread(const ThreadInitCallback &cb, const string &name)
             : loop_(NULL),
               exiting_(false),
-              thread_(std::bind(&EventLoopThread::threadFunc, this)),
+              thread_([this]()
+                      { this->startLoop(); }, name),
               mutex_(),
-              cond_(mutex_)
+              cond_(mutex_),
+              cb_(cb)
         {
         }
         EventLoopThread::~EventLoopThread()
@@ -22,6 +24,7 @@ namespace reactor
             thread_.join();
         }
 
+        // use CountDownLatch to simply ?
         EventLoop *EventLoopThread::startLoop()
         {
             assert(!thread_.started());
@@ -34,13 +37,21 @@ namespace reactor
                     cond_.wait();
                 }
             }
-
+            //把loop_给EventLoopThreadPool
             return loop_;
         }
 
+
+        //给Thread用的，Thread start后运行这个函数
         void EventLoopThread::threadFunc()
         {
-            EventLoop loop;
+            EventLoop loop; //loop已经和当前线程绑定了
+            
+            if (cb_)
+            {
+                cb_(&loop);
+            }
+
             {
                 MutexLockGuard lock(mutex_);
                 loop_ = &loop;

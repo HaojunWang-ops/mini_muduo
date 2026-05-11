@@ -17,7 +17,9 @@ namespace reactor
               index_(-1),
               events_(0),
               revents_(0),
-              eventHandling_(false)
+              tied_(false),
+              eventHandling_(false),
+              addedToLoop_(false)
         {
         }
 
@@ -26,38 +28,85 @@ namespace reactor
             assert(!eventHandling_);
         }
 
+        void Channel::tie(const std::shared_ptr<void>& obj)
+        {
+            tie_ = obj;
+            tied_ = true;
+        }
+
         void Channel::update()
         {
+            addedToLoop_ = true;
             ownerLoop_->updateChannel(this);
         }
 
-        void Channel::handleevent(Timestamp receivetime)
+        void Channel::remove()
+        {   
+            assert(isNoneEvent());
+            addedToLoop_ = false;
+            ownerLoop_->removeChannel(this);
+        }
+
+        void Channel::handleEvent(Timestamp receiveTime)
+        {
+            std::shared_ptr<void> guard;
+            if (tied_)
+            {
+                guard = tie_.lock();
+                if (guard)
+                {
+                    handleEventWithGuard(receiveTime);
+                }
+            }
+            else //除TcpConnection之外，不需要绑定tie的channel
+            {
+                handleEventWithGuard(receiveTime);
+            }
+        }
+
+        /*
+        POLLIN      可读
+        POLLPRI     有紧急数据或带外数据
+        POLLOUT     可写
+        POLLHUP     对端挂断
+        POLLRDHUP   对端关闭写端/半关闭
+        POLLERR     错误
+        POLLNVAL    非法 fd
+        */
+
+
+        void Channel::handleEventWithGuard(Timestamp receiveTime)
         {
             eventHandling_ = true;
 
-            if (revents_ & POLLHUP && !(revents_ & POLLIN))
+            //只有HUP且没有可读事件
+            //关闭连接
+            if ((revents_ & POLLHUP) && !(revents_ & POLLIN))
             {
-                LOG_WARN << "Channel::handle_event() POLLHUP";
-                if (closeCallback_) closeCallback_();
+                if (closeCallback_)
+                {
+                    closeCallback_();
+                }
             }
+
             if (revents_ & POLLNVAL)
             {
-                LOG_WARN << "Channel::handlevent() POLLNVAL";
+                LOG_WARN << "fd = " << fd_ << "Channel::handleEvent() POLLNVAL";
             }
+
             if (revents_ & (POLLERR | POLLNVAL))
             {
-                if (errorCallback_)
-                    errorCallback_();
+                if (errorCallback_) errorCallback_();
             }
-            if (revents_ & (POLLIN | POLLPRI | POLLHUP))
+
+            if (revents_ & (POLLIN | POLLPRI | POLLRDHUP))
             {
-                if (readCallback_)
-                    readCallback_(receivetime);
+                if (readCallback_) readCallback_(receiveTime);
             }
+
             if (revents_ & POLLOUT)
             {
-                if (writeCallback_)
-                    writeCallback_();
+                if (writeCallback_) writeCallback_();
             }
 
             eventHandling_ = false;

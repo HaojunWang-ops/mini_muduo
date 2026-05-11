@@ -1,50 +1,35 @@
-#include "TcpServer.h"
 #include "EventLoop.h"
+#include "TcpServer.h"
 #include "InetAddress.h"
 #include "Buffer.h"
-#include "AsyncLogging.h"
 #include "Logging.h"
 
-#include <stdio.h>
-#include <memory>
+using namespace reactor;
+using namespace reactor::net;
 
-std::unique_ptr<reactor::AsyncLogging> g_asynclogging;
-
-void asyncoutpt(const char* msg, int len)
+void onConnection(const TcpConnectionPtr& conn)
 {
-  g_asynclogging->append(msg, len);
+    LOG_INFO << "connection " << conn->peerAddress().toIpPort()
+             << " -> " << conn->localAddress().toIpPort()
+             << " is " << (conn->connected() ? "UP" : "DOWN");
 }
 
-
-void onMessage(const reactor::net::TcpConnectionPtr &conn, reactor::net::Buffer *buf, reactor::Timestamp receiveTime)
+void onMessage(const TcpConnectionPtr& conn, Buffer* buf, Timestamp)
 {
-  conn->send(buf);
-}
-void onConnection(const reactor::net::TcpConnectionPtr &conn)
-{
-  conn->setTcpNoDelay(true);
+    std::string msg = buf->retrieveAsString();
+    conn->send(msg);
 }
 
 int main()
 {
-  off_t rollSize = 500 * 1000 * 1000;
-  
-  g_asynclogging.reset(new reactor::AsyncLogging("server", rollSize, 3));
+  EventLoop loop;
+  InetAddress listenAddr(9981);
+  TcpServer server(&loop, listenAddr, "EchoServer");
 
-  g_asynclogging->start();
-  reactor::Logger::setOutput(asyncoutpt);
-
-  LOG_INFO << "server start";
-  LOG_INFO << reactor::CurrentThread::tid();
-
-  reactor::net::InetAddress listenAddr(9981);
-  LOG_INFO << listenAddr.toIpPort().c_str();
-  reactor::net::EventLoop loop;
-
-  reactor::net::TcpServer server(&loop, listenAddr);
   server.setConnectionCallback(onConnection);
   server.setMessageCallback(onMessage);
-  server.start();
 
+  server.start();
   loop.loop();
 }
+

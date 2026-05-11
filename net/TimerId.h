@@ -9,13 +9,22 @@ namespace reactor
         class TimerId
         {
         public:
-            explicit TimerId(Timer *timer)
-                : value_(timer)
+            explicit TimerId()
+                : value_(nullptr),
+                  sequence_(0)
+            {
+            }
+            
+            explicit TimerId(Timer *timer, int64_t sequence)
+                : value_(timer),
+                  sequence_(sequence)
             {
             }
 
+            friend class TimerQueue;
         private:
-            Timer *value_;
+            Timer* value_;
+            const int64_t sequence_;
         };
     }
 }

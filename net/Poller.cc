@@ -123,5 +123,12 @@ namespace reactor
                 Pollfds_.pop_back();
             }
         }
+
+        bool Poller::hasChannel(Channel* channel)
+        {
+            owner_loop_->assertInLoopThread();
+            ChannelMap::const_iterator it = Channels_.find(channel->fd());
+            return (it != Channels_.end() && it->second == channel);
+        }
     }
 }

@@ -38,6 +38,8 @@ namespace
             }
         };
         #pragma GCC diagnostic error "-Wold-style-cast"
+
+        IgnoreSigPipe initobj;
 }
 namespace reactor
 {
@@ -46,6 +48,7 @@ namespace reactor
         EventLoop::EventLoop()
             : looping_(false),
               quit_(false),
+              eventHandling_(false),
               callingPendingFunctors_(false),
               threadId_(CurrentThread::tid()),
               pollReturnTime_(Timestamp::invalid()),
@@ -53,7 +56,8 @@ namespace reactor
               timerQueue_(new TimerQueue(this)),
               wakeupFd_(createEventfd()),
               wakeupChannel_(new Channel(this, wakeupFd_)),
-              mutex_()
+              mutex_(),
+              currentActiveChannel(nullptr)
         {
             LOG_DEBUG << "EventLoop created " << this << " in thread " << threadId_;
             if (t_loopInThisThread)
@@ -72,9 +76,18 @@ namespace reactor
         EventLoop::~EventLoop()
         {
             assert(!looping_);
+            LOG_DEBUG << "EventLoop " << this << " of thread " << threadId_
+                << " destructs in thread " << CurrentThread::tid();
+            wakeupChannel_->disableAll();
+            wakeupChannel_->remove();
             ::close(wakeupFd_);
             t_loopInThisThread = NULL;
             looping_ = false;
+        }
+
+        EventLoop* EventLoop::getEventLoopOfCurrentThread()
+        {
+            return t_loopInThisThread;
         }
 
         void EventLoop::loop()
@@ -84,16 +97,23 @@ namespace reactor
             looping_ = true;
             quit_ = false;
 
+            LOG_TRACE << "EventLoop " << this << " start looping";
+
             while (!quit_)
             {
                 activeChannels_.clear();
                 pollReturnTime_ = poller_->poll(kPollTimeMs, &activeChannels_);
-                for (auto it = activeChannels_.begin(); it != activeChannels_.end(); it++)
+                eventHandling_ = true;
+                for (Channel* channel : activeChannels_)
                 {
-                    (*it)->handleevent(pollReturnTime_);
+                    currentActiveChannel = channel;
+                    currentActiveChannel->handleEvent(pollReturnTime_);
                 }
+                currentActiveChannel = nullptr;
+                eventHandling_ = false;
                 deoPendingFunctors();
             }
+
             LOG_TRACE << "EventLoop " << this << " stopped";
             looping_ = false;
         }
@@ -101,7 +121,8 @@ namespace reactor
         void EventLoop::quit()
         {
             quit_ = true;
-            if (isInLoopThread())
+
+            if (!isInLoopThread())
             {
                 wakeup();
             }
@@ -126,6 +147,10 @@ namespace reactor
             }
             if (!isInLoopThread() || callingPendingFunctors_)
             {
+                //3种情况
+                //1.其他线程调用queueInLoop，需要唤醒，可能卡在poll()
+                //2.自己线程调用，不需要唤醒，接下来会执行到doPendingFunctors()
+                //3.callingPendingFunctors，需要唤醒，不唤醒的话，这个任务就只能等待下一次poll()
                 wakeup();
             }
         }
@@ -156,7 +181,18 @@ namespace reactor
         {
             assert(channel->ownerLoop() == this);
             assertInLoopThread();
+            if (eventHandling_ )
+            {
+                assert(channel == currentActiveChannel || std::find(activeChannels_.begin(), activeChannels_.end(), channel) == activeChannels_.end());
+            }
             poller_->removeChannel(channel);
+        }
+
+        bool EventLoop::hasChannel(Channel* channel)
+        {
+            assertInLoopThread();
+            assert(channel->ownerLoop() == this);
+            return poller_->hasChannel(channel);
         }
 
         void EventLoop::abortNotInLoopThread()
@@ -175,6 +211,10 @@ namespace reactor
             }
         }
 
+        void EventLoop::cancel(TimerId timerId)
+        {
+            return timerQueue_->cancelTimer(timerId);
+        }
         void EventLoop::handleRead()
         {
             uint64_t one = 1;

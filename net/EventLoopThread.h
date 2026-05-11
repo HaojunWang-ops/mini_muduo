@@ -3,8 +3,10 @@
 #include "Mutex.h"
 #include "Thread.h"
 #include "Condition.h"
-
 #include "noncopyable.h"
+
+#include <string.h>
+#include <string>
 
 namespace reactor
 {
@@ -15,7 +17,9 @@ namespace reactor
         class EventLoopThread : noncopyable
         {
         public:
-            EventLoopThread();
+            typedef std::function<void(EventLoop*)> ThreadInitCallback;
+
+            EventLoopThread(const ThreadInitCallback& cb = ThreadInitCallback(), const std::string& name = std::string());
             ~EventLoopThread();
             EventLoop *startLoop();
 
@@ -27,6 +31,7 @@ namespace reactor
             Thread thread_;
             MutexLock mutex_;
             Condition cond_;
+            ThreadInitCallback cb_;
         };
     }
 }

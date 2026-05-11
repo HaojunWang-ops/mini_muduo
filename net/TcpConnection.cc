@@ -5,8 +5,24 @@
 #include "Logging.h"
 #include "SocketsOps.h"
 #include "base/StringPiece.h"
+#include "Buffer.h"
+#include "Timestamp.h"
 
 #include <memory>
+
+void reactor::net::defaultConnectionCallback(const TcpConnectionPtr& conn)
+{
+  LOG_TRACE << conn->localAddress().toIpPort() << " -> "
+            << conn->peerAddress().toIpPort() << " is "
+            << (conn->connected() ? "UP" : "DOWN");
+}
+
+void reactor::net::defaultMessageCallback(const TcpConnectionPtr& conn,
+                                            Buffer* buf,
+                                            Timestamp receiveTime)
+{
+  buf->retrieveAll();
+}
 
 namespace reactor
 {
@@ -20,7 +36,8 @@ namespace reactor
               socket_(new Socket(connfd)),
               channel_(new Channel(loop, connfd)),
               localAddr_(localAddr),
-              peerAddr_(peerAddr)
+              peerAddr_(peerAddr),
+              highWaterMark_(64 * 1024 * 1024)
         {
             LOG_TRACE << "TcpConnection::ctor[" << name_ << "] at " << this
                      << " fd=" << connfd;
@@ -34,12 +51,14 @@ namespace reactor
 
             channel_->setCloseCallback([this]()
                                        { this->handleClose(); });
+            socket_->setKeepAlive(true);
         }
 
         TcpConnection::~TcpConnection()
         {
             LOG_TRACE << "TcpConnection::dtor[" << name_ << "] at " << this
                      << " fd=" << channel_->fd();
+            assert(state_ == kDisconnected);
         }
 
         const char *TcpConnection::stateToString() const

@@ -48,6 +48,7 @@ namespace reactor
 
         void Acceptor::handleRead(Timestamp receivetime)
         {
+            (void) receivetime;
             loop_->assertInLoopThread();
             while (true)
             {

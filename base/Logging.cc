@@ -21,11 +21,11 @@ namespace reactor
 
     Logger::LogLevel initLogLevel()
     {
-        if (::getenv("MUDUO_LOG_TRACE"))
+        if (::getenv("REACTOR_LOG_TRACE"))
         {
             return Logger::TRACE;
         }
-        if (::getenv("MUDUO_LOG_DEBUG"))
+        if (::getenv("REACTOR_LOG_DEBUG"))
         {
             return Logger::DEBUG;
         }

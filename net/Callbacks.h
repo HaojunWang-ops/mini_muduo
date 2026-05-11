@@ -21,6 +21,6 @@ namespace reactor{
         typedef std::function<void (const TcpConnectionPtr&, Buffer*, Timestamp)> MessageCallback;
         
         void defaultConnectionCallback(const TcpConnectionPtr& conn);
-        void defaultMessageCalllback(const TcpConnectionPtr& conn, Buffer* buffer, Timestamp receiveTime);
+        void defaultMessageCallback(const TcpConnectionPtr& conn, Buffer* buffer, Timestamp receiveTime);
     }
 }

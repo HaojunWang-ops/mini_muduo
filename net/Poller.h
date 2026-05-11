@@ -33,7 +33,8 @@ namespace reactor
             void assertInLoopThread();
 
             void removeChannel(Channel* channel);
-            
+           
+            bool hasChannel(Channel* channel);
         private:
             void fillActiveChannels(int numsevents, ChannelList *activeChannels) const;
 

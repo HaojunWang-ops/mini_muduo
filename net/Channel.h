@@ -4,6 +4,7 @@
 #include "base/noncopyable.h"
 
 #include <functional>
+#include <memory>
 
 namespace reactor
 {
@@ -20,8 +21,8 @@ namespace reactor
             Channel(EventLoop *loop, int fd);
             ~Channel();
 
-            void handleevent(Timestamp receivetime);
-            void update();
+            void handleEvent(Timestamp receivetime);
+            
             void set_revents(int revents);
 
             void setReadCallback(ReadCallback cb) { readCallback_ = cb; }
@@ -29,7 +30,10 @@ namespace reactor
             void setErrorCallback(Callback cb) { errorCallback_ = cb; }
             void setCloseCallback(Callback cb) { closeCallback_ = cb; }
             
+            void tie(const std::shared_ptr<void>&);
+
             void enableRead() { events_ |= kReadEvent; update(); }
+            void disableRead() { events_ &= ~kReadEvent; update(); }
             void enableWrite() { events_ |= kWriteEvent; update(); }
             void disableWriting() {events_ &= ~kWriteEvent; update(); }
             void disableAll() {
@@ -37,27 +41,39 @@ namespace reactor
                 update(); 
             }
             bool isWriting() const { return events_ & kWriteEvent; }
-            
-            int fd() { return fd_; }
+            bool isReading() const { return events_ & kReadEvent; }
+
+            int fd() const { return fd_; }
             int index() { return index_; }
-            int events() { return events_; }
+            int events() const { return events_; }
             EventLoop *ownerLoop() { return ownerLoop_; }
             void set_index(int index) { index_ = index; }
             void set_revent(int revents) { revents_ = revents; }
 
             bool isNoneEvent() { return events_ == kNoneEvent; }
+            
+            void remove();
         private:
-            EventLoop *ownerLoop_;
-            int fd_;
-            int index_; // used by Poller
+            void update();
+            void handleEventWithGuard(Timestamp receiveTime);
+
             static const int kNoneEvent;
             static const int kReadEvent;
-            static const int kWriteEvent;
+            static const int kWriteEvent;            
+            
+            EventLoop *ownerLoop_;
+            const int fd_;
+            int index_; // used by Poller
             int events_;
             int revents_;
 
+            //weak_ptr来保证使用时TcpConnection还没有析构
+            //使用void类型降低channel与TcpConnection的耦合
+            std::weak_ptr<void> tie_;
+            bool tied_;
             bool eventHandling_;
-
+            bool addedToLoop_;
+            
             ReadCallback readCallback_;
             Callback writeCallback_;
             Callback errorCallback_;

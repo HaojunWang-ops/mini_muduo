@@ -26,11 +26,18 @@ namespace reactor
 
             TimerId addTimer(const TimerCallback &callback, Timestamp now, double interval);
 
+            void cancelTimer(TimerId timerId);
         private:
             typedef std::pair<Timestamp, Timer *> Entry;
             typedef std::set<Entry> TimerList;
+            typedef std::pair<Timer*, int64_t> ActiveTimer;
+            //用set的原因是因为pair支持比较，能够放到set里面
+            //优化可以用unoreded_set 写hash
+            //不需要set的排序功能
+            typedef std::set<ActiveTimer> ActiveTimerSet;
 
             void addTimerInLoop(Timer *timer);
+            void cancelTimerInLoop(TimerId timerId);
 
             void handleRead(Timestamp receivetime);
 
@@ -44,6 +51,10 @@ namespace reactor
             Channel timerfdChannel_;
 
             TimerList timers_;
+
+            ActiveTimerSet activeTimers_;
+            bool callingExpiredTimers_;
+            ActiveTimerSet cancelingTimers_;
         };
     }
 }

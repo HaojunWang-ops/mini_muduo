@@ -47,14 +47,18 @@ namespace reactor
             void wakeup();
             void updateChannel(Channel *channel);
             void removeChannel(Channel *channel);
-            
+            bool hasChannel(Channel* channel);
+
             void runInLoop(const Functor &cb);
             void queueInLoop(const Functor &cb);
+
+            void cancel(TimerId timerId);
 
             TimerId runAt(const Timestamp &time, const TimerCallback &cb);
             TimerId runAfter(double delay, const TimerCallback &cb);
             TimerId runEvery(double interval, const TimerCallback &cb);
 
+            EventLoop* getEventLoopOfCurrentThread();
         private:
             void abortNotInLoopThread();
             void handleRead();
@@ -64,16 +68,22 @@ namespace reactor
 
             bool looping_;
             bool quit_;
+            bool eventHandling_;
             bool callingPendingFunctors_;
             const pid_t threadId_;
+            
             Timestamp pollReturnTime_;
             std::unique_ptr<Poller> poller_;
             std::unique_ptr<TimerQueue> timerQueue_;
+            
             int wakeupFd_;
             std::unique_ptr<Channel> wakeupChannel_;
             ChannelList activeChannels_;
+            
             MutexLock mutex_;
-            std::vector<Functor> pendingFunctors_;
+            std::vector<Functor> pendingFunctors_ GUARDED_BY(mutex_);
+
+            Channel* currentActiveChannel;
         };
     }
 }

@@ -28,7 +28,7 @@ namespace reactor
             const InetAddress& localAddress() { return localAddr_; }
             const InetAddress& peerAddress() { return peerAddr_; }
             bool connected() const { return state_ == kConnected; }
-
+            bool disconnected() const { return state_ == kDisconnected; }
             
             void setConnectionCallback(const ConnectionCallback& cb)
             { connectionCallback_ = cb; }
@@ -96,6 +96,8 @@ namespace reactor
             size_t highWaterMark_;
             Buffer inputBuffer_;
             Buffer outputBuffer_;
+        
+            typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
         };
     }
 }
