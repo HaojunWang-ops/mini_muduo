@@ -32,7 +32,7 @@ namespace reactor
 
             Timestamp pollReturnTime() { return pollReturnTime_; }
 
-            void assertInLoopThread()
+            void assertInLoopThread() const
             {
                 if (!isInLoopThread())
                 {
@@ -60,7 +60,7 @@ namespace reactor
 
             EventLoop* getEventLoopOfCurrentThread();
         private:
-            void abortNotInLoopThread();
+            void abortNotInLoopThread() const;
             void handleRead();
             void deoPendingFunctors();
 

@@ -30,6 +30,9 @@ add_library(mini_muduo STATIC
     net/EventLoopThreadPool.cc
     net/InetAddress.cc
     net/Poller.cc
+    net/poller/DefaultPoller.cc
+    net/poller/EPollPoller.cc
+    net/poller/PollPoller.cc
     net/Socket.cc
     net/SocketsOps.cc
     net/TcpServer.cc

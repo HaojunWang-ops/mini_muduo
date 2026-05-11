@@ -52,7 +52,7 @@ namespace reactor
               callingPendingFunctors_(false),
               threadId_(CurrentThread::tid()),
               pollReturnTime_(Timestamp::invalid()),
-              poller_(new Poller(this)),
+              poller_(Poller::newDefaultPoller(this)),
               timerQueue_(new TimerQueue(this)),
               wakeupFd_(createEventfd()),
               wakeupChannel_(new Channel(this, wakeupFd_)),
@@ -195,7 +195,7 @@ namespace reactor
             return poller_->hasChannel(channel);
         }
 
-        void EventLoop::abortNotInLoopThread()
+        void EventLoop::abortNotInLoopThread() const
         {
             LOG_FATAL << "EventLoop::abortNotInLoopThread - EventLoop " << this
                       << " was created in threadId_ = " << threadId_

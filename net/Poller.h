@@ -2,6 +2,7 @@
 
 #include "Timestamp.h"
 #include "Logging.h"
+#include "EventLoop.h"
 
 #include <vector>
 #include <map>
@@ -15,35 +16,34 @@ namespace reactor
         class EventLoop;
         class Channel;
 
-        class Poller
+        class Poller : noncopyable
         {
         public:
             typedef std::vector<Channel *> ChannelList;
-            Poller(EventLoop *loop)
-                : owner_loop_(loop)
+            Poller(EventLoop *loop); 
+
+            virtual ~Poller();
+
+            virtual Timestamp poll(int timeoutMs, ChannelList *activeChannels) = 0;
+            
+            virtual void updateChannel(Channel *channel) = 0;
+
+            void assertInLoopThread() const
             {
+                owner_loop_->assertInLoopThread();
             }
 
-            Poller(const Poller &) = delete;
-            Poller &operator=(const Poller &) = delete;
-
-            Timestamp poll(int timeoutMs, ChannelList *activeChannels);
-            void updateChannel(Channel *channel);
-
-            void assertInLoopThread();
-
-            void removeChannel(Channel* channel);
+            virtual void removeChannel(Channel* channel) = 0;
            
-            bool hasChannel(Channel* channel);
-        private:
-            void fillActiveChannels(int numsevents, ChannelList *activeChannels) const;
+            virtual bool hasChannel(Channel* channel) const;
 
-            typedef std::vector<struct pollfd> PollFdList;
+            static Poller* newDefaultPoller(EventLoop* loop);
+        protected:
             typedef std::map<int, Channel *> ChannelMap;
-
+            ChannelMap channels_;
+        
+        private:
             EventLoop *owner_loop_;
-            PollFdList Pollfds_;
-            ChannelMap Channels_;
         };
     }
 }

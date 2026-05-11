@@ -25,11 +25,17 @@ int main()
   EventLoop loop;
   InetAddress listenAddr(9981);
   TcpServer server(&loop, listenAddr, "EchoServer");
+  server.setThreadNum(6);
 
   server.setConnectionCallback(onConnection);
   server.setMessageCallback(onMessage);
 
-  server.start();
+  server.start();  
+  loop.runAfter(10.0, [&loop] {
+    LOG_INFO << "quit loop";
+    loop.quit();
+  });
   loop.loop();
+
 }
 
