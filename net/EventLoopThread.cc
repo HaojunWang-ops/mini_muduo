@@ -11,7 +11,7 @@ namespace reactor
             : loop_(NULL),
               exiting_(false),
               thread_([this]()
-                      { this->startLoop(); }, name),
+                      { this->threadFunc(); }, name),
               mutex_(),
               cond_(mutex_),
               cb_(cb)

@@ -31,7 +31,7 @@ int main()
   server.setMessageCallback(onMessage);
 
   server.start();  
-  loop.runAfter(10.0, [&loop] {
+  loop.runAfter(100.0, [&loop] {
     LOG_INFO << "quit loop";
     loop.quit();
   });
