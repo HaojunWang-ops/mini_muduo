@@ -11,6 +11,7 @@
 using namespace reactor;
 using namespace reactor::net;
 
+//socket真正拥有fd，负责close
 Socket::~Socket()
 {
     sockets::close(sockfd_);

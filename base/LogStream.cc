@@ -17,9 +17,8 @@ namespace reactor
 {
     namespace detail
     {
-        const char digits[] = "9876543210123456789";
-        const char *zero = digits + 9;
-        static_assert(sizeof(digits) == 20, "wrong number of digits");
+        const char digits[] = "0123456789";
+        static_assert(sizeof(digits) == 11, "wrong number of digits");
 
         const char digitsHex[] = "0123456789ABCDEF";
         static_assert(sizeof(digitsHex) == 17, "wrong number of digitsHex");
@@ -56,8 +55,8 @@ namespace reactor
 
             do
             {
-                int lsd = i % 10;
-                i = i / 10;
+                int lsd = i % 16;
+                i = i / 16;
                 *p++ = digitsHex[lsd];
             } while (i != 0);
 
@@ -267,7 +266,7 @@ LogStream& LogStream::operator<<(const void* p)
         char* buf = buffer_.current();
         buf[0] = '0';
         buf[1] = 'x';
-        size_t len = convert(buf + 2, i);
+        size_t len = convertHex(buf + 2, i);
         buffer_.add(len + 2);
     }
     return *this;
@@ -280,7 +279,7 @@ LogStream& LogStream::operator<<(const char* str)
     }
     else
     {
-        buffer_.append("NULL", 6);
+        buffer_.append("(NULL)", 6);
     }
     return *this;
 }

@@ -23,6 +23,12 @@ namespace reactor
         {
         }
 
+        //Channel不持有fd，不负责fd的close
+        //fd的关闭
+        //连接 fd：Socket::~Socket()，由 TcpConnection 持有
+        //监听 fd：Socket::~Socket()，由 Acceptor 持有
+        //eventfd：EventLoop 析构函数里 close
+        //timerfd：TimerQueue 析构函数里 close
         Channel::~Channel()
         {
             assert(!eventHandling_);

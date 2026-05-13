@@ -102,7 +102,7 @@ namespace reactor
                 {
                     makeSpace(len);
                 }
-                assert(writeableBytes() > len);
+                assert(writeableBytes() >= len);
             }
 
             char* beginWrite()

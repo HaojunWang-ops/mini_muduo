@@ -125,7 +125,6 @@ int sockets::accept(int sockfd, struct sockaddr_in6* addr)
     #endif 
         if (connfd < 0)
         {
-            printf("accpet::connfd = %d", connfd);
             int savedErrno = errno;
             if (errno != EAGAIN && errno != EWOULDBLOCK)
             {
@@ -200,7 +199,7 @@ void sockets::toIpPort(char* buf, size_t size, const struct sockaddr* addr)
         size_t end = strlen(buf);
         assert(size > end);
         uint16_t port = sockets::networkToHost16(AF->sin_port);
-        snprintf(buf + end, size - end, " :%hd", port);
+        snprintf(buf + end, size - end, " :%hu", port);
         return;
     }
     *buf = '[';
@@ -209,7 +208,7 @@ void sockets::toIpPort(char* buf, size_t size, const struct sockaddr* addr)
     size_t end = strlen(buf);
     assert(size > end);
     uint16_t port = sockets::networkToHost16(AF->sin6_port);
-    snprintf(buf + end, size - end, "] :%hd", port);
+    snprintf(buf + end, size - end, "] :%hu", port);
 }
 
 void sockets::toIp(char* buf, size_t size, const struct sockaddr* addr)

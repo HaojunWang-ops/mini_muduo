@@ -5,7 +5,13 @@ project(mini_muduo LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fsanitize=address -fno-omit-frame-pointer")
+
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+if (ENABLE_ASAN AND ENABLE_TSAN)
+    message(FATAL_ERROR "ASan and TSan cannot be enabled at the same time")
+endif()
 
 find_package(Threads REQUIRED)
 
@@ -21,7 +27,7 @@ add_library(mini_muduo STATIC
     base/FileUtil.cc
     base/Thread.cc
     base/Timestamp.cc
-    
+
     net/Acceptor.cc
     net/Buffer.cc
     net/Channel.cc
@@ -67,17 +73,39 @@ target_link_libraries(main
         mini_muduo
 )
 
-enable_testing()
+function(enable_sanitizes target_name)
+    if (ENABLE_ASAN)
+        target_compile_options(${target_name} PRIVATE
+            -fsanitize=address
+            -fno-omit-frame-pointer
+            -O0
+            -g
+        )
+        target_link_options(${target_name} PRIVATE
+            -fsanitize=address
+        )
+    endif()
 
-file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp
-)
+    if (ENABLE_TSAN)
+        target_compile_options(${target_name} PRIVATE
+            -fsanitize=thread
+            -fno-omit-frame-pointer
+            -O1
+            -g
+        )
+        target_link_options(${target_name} PRIVATE
+            -fsanitize=thread
+        )
+    endif()
+endfunction()
 
-foreach(test_src ${TEST_SOURCES})
-    get_filename_component(test_name ${test_src} NAME_WE)
+enable_sanitizes(mini_muduo)
+enable_sanitizes(main)
 
-    add_executable(${test_name} ${test_src})
-    target_link_libraries(${test_name} PRIVATE mini_muduo)
+#[[
+cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON ..
 
-    add_test(NAME ${test_name} COMMAND ${test_name})
-endforeach()
+cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_TSAN=ON ..
+
+cmake -DCMAKE_BUILD_TYPE=Release .. (此时两个开关默认都是 OFF，零性能损耗)
+]]

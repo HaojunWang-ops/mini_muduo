@@ -10,15 +10,15 @@ namespace reactor
 {
     namespace net
     {
-        TcpServer::TcpServer(EventLoop *loop, 
+        TcpServer::TcpServer(EventLoop *loop,
                              const InetAddress &listenAddr,
-                             const string& nameArg,
+                             const string &nameArg,
                              Option option)
             : loop_(loop),
               ipPort_(listenAddr.toIpPort()),
               name_(nameArg),
               acceptor_(new Acceptor(loop, listenAddr, option == KReusePort)),
-              threadPool_(std::make_unique<EventLoopThreadPool> (loop, name_)),
+              threadPool_(std::make_unique<EventLoopThreadPool>(loop, name_)),
               connectionCallback_(defaultConnectionCallback),
               messageCallback_(defaultMessageCallback),
               started_(false),
@@ -34,14 +34,14 @@ namespace reactor
             LOG_TRACE << "TcpServer::~TcpServer [" << name_ << "] destructing";
             started_ = false;
 
-            //destroy all TcpConnection
-            for (auto item : connections_){
+            // destroy all TcpConnection
+            for (auto item : connections_)
+            {
                 TcpConnectionPtr conn = (item.second);
                 item.second.reset();
-                EventLoop* ioLoop = conn->getLoop();
-                ioLoop->runInLoop([conn](){
-                    conn->connectDestroyed();
-                });
+                EventLoop *ioLoop = conn->getLoop();
+                ioLoop->runInLoop([conn]()
+                                  { conn->connectDestroyed(); });
             }
         }
 
@@ -56,30 +56,25 @@ namespace reactor
             {
                 threadPool_->start(threadInitCallback_);
                 assert(!acceptor_->listening());
-                loop_->runInLoop([acceptor = acceptor_.get()](){
-                    acceptor->listen();
-                });
+                loop_->runInLoop([acceptor = acceptor_.get()]()
+                                 { acceptor->listen(); });
             }
         }
 
-
-        //设置TcpConnection初始化的各个参数
-        //把TcpConnection加到map里面
-        //给TcpConnection绑定回调函数
-        //调用TcpConnection的connectEstablished()
+        // 设置TcpConnection初始化的各个参数
+        // 把TcpConnection加到map里面
+        // 给TcpConnection绑定回调函数
+        // 调用TcpConnection的connectEstablished()
         void TcpServer::newConnection(int connfd, const InetAddress &peerAddr)
         {
 
             loop_->assertInLoopThread();
-            EventLoop* ioLoop = threadPool_->getNextLoop();
+            EventLoop *ioLoop = threadPool_->getNextLoop();
             char buf[32];
             snprintf(buf, sizeof buf, "#%d", nextConnId_);
             ++nextConnId_;
 
             std::string connName = name_ + buf;
-            LOG_INFO << "TcpServer::newConnection [" << name_
-                     << "] - new connection [" << connName
-                     << "] from " << peerAddr.toIpPort();
 
             InetAddress localAddress(sockets::getLocalAddr(connfd));
             InetAddress peerAddrress(sockets::getPeerAddr(connfd));
@@ -92,11 +87,12 @@ namespace reactor
                                    { this->removeConnection(tcpConnectionPtr); });
             conn->setWriteCompleteCallback(writeCompleteCallback_);
             conn->setHighWaterMarkCallback(highWaterMarkCallback_, highWaterMark_);
-            ioLoop->runInLoop([conn](){
-                conn->connectEstablished();
-            });
+            ioLoop->runInLoop([conn]()
+                              { conn->connectEstablished(); });
+            LOG_INFO << "TcpServer::newConnection [" << name_
+                     << "] - new connection [" << connName
+                     << "] from " << peerAddr.toIpPort();
         }
-
 
         //
         void TcpServer::removeConnection(const TcpConnectionPtr &conn)
@@ -112,13 +108,13 @@ namespace reactor
             LOG_INFO << "TcpServer::removeConnectionInLoop [" << name_
                      << "] - connection " << conn->name();
 
-            size_t n = connections_.erase(conn->name()); //先在TcpServer中把map里面的TcpConnection拿掉
+            size_t n = connections_.erase(conn->name()); // 先在TcpServer中把map里面的TcpConnection拿掉
             assert(n == 1);
             (void)n;
 
-            EventLoop* ioLoop = conn->getLoop();
+            EventLoop *ioLoop = conn->getLoop();
             ioLoop->queueInLoop([this, conn]()
-                               { conn->connectDestroyed(); }); //到线程中去remove channel
+                                { conn->connectDestroyed(); }); // 到线程中去remove channel
         }
     }
 }

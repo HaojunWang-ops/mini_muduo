@@ -22,6 +22,8 @@ void reactor::net::defaultMessageCallback(const TcpConnectionPtr& conn,
                                             Timestamp receiveTime)
 {
   buf->retrieveAll();
+  (void) conn;
+  (void) receiveTime;
 }
 
 namespace reactor
@@ -52,6 +54,10 @@ namespace reactor
             channel_->setCloseCallback([this]()
                                        { this->handleClose(); });
             socket_->setKeepAlive(true);
+            LOG_INFO << "new connection " << name_
+                << " fd=" << connfd
+                << " ioLoop=" << loop_
+                << " threadId=" << CurrentThread::tid();
         }
 
         TcpConnection::~TcpConnection()
@@ -260,7 +266,7 @@ namespace reactor
                 {
                     outputBuffer_.retrieve(n);
 
-                    if (outputBuffer_.readableBytes())
+                    if (outputBuffer_.readableBytes() == 0)
                     {
                         channel_->disableWriting();
                         if (writeCompleteCallback_)
