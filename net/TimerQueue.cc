@@ -137,13 +137,15 @@ void TimerQueue::cancelTimerInLoop(TimerId timerId)
         Entry expiration_timer (timer_sequence.first->expiration(), timerId.value_);
         size_t n = timers_.erase(expiration_timer);
         assert(n == 1); (void) n;
-        activeTimers_.erase(timer_sequence);
+        n = activeTimers_.erase(timer_sequence);
+        assert(n == 1); (void) n;
         //用delete不够安全
         //同一个timer*同时被activeTimers_ 和 timers_ 拥有
         //所以delete前，一定一定要把两个containter中的timer*给删掉
         delete timer_sequence.first;
     }
-    //在处理过期过期timer时，会先从avtiveTimers_中拿掉
+    //在处理过期过期timer时，到期的timer调用了cancelTime
+    //此时callingExpiredTimers_== true，getExpired()已经把Tiemr从avtiveTimers_中拿掉了
     //cancelingTimers_来处理timer.repeat的情况
     else if (callingExpiredTimers_)
     {
@@ -183,13 +185,13 @@ std::vector<TimerQueue::Entry> TimerQueue::getExpired(Timestamp now)
     auto it = timers_.lower_bound(sentry);
     assert(it == timers_.end() || now < it->first);
     std::copy(timers_.begin(), it, std::back_inserter(Expired));
-    timers_.erase(timers_.begin(), it);
+    timers_.erase(timers_.begin(), it);    //从timers_中拿掉
 
     for (Entry expiration_timer : Expired)
     {
         Timer* timer = expiration_timer.second;
         ActiveTimer timer_sequence(timer, timer->sequence());
-        size_t n = activeTimers_.erase(timer_sequence);
+        size_t n = activeTimers_.erase(timer_sequence); //从activeTimers_中拿掉
         assert(n == 1); (void) n;
     }
 

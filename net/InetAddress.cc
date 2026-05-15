@@ -97,6 +97,7 @@ bool InetAddress::resolve(StringArg hostname, InetAddress* out)
     hints.ai_socktype = 0; //hints.ai_socktype = SOCK_STREAM只负责TCP
 
     struct addrinfo* result = nullptr;
+    //将人类可读的主机名和服务名，转换成可供bind或connect等系统调用直接使用的套接字地址结构链表
     int ret = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
     if (ret != 0)
     {
@@ -104,6 +105,7 @@ bool InetAddress::resolve(StringArg hostname, InetAddress* out)
         return false;
     }
     
+    //freeaddrinfo来释放addrinfo
     std::unique_ptr<struct addrinfo, decltype(&freeaddrinfo) > addr_ptr(result, freeaddrinfo);
 
     for (struct addrinfo* rp = addr_ptr.get(); rp!= nullptr; rp = rp->ai_next)

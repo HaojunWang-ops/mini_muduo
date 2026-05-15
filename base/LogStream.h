@@ -56,12 +56,15 @@ namespace reactor
 
         private:
             const char *end() const { return data_ + sizeof data_; }
+            
+            //cookieStart cookieEnd 是 FixedBuffer 的生命周期调试标记
+            //真正有用的是函数地址，不是函数体
             static void cookieStart();
             static void cookieEnd();
 
             void (*cookie_)();
             char data_[SIZE];
-            char *cur_;
+            char *cur_;   //buffer中当前位置的指针
         };
     }
 

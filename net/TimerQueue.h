@@ -31,9 +31,9 @@ namespace reactor
             typedef std::pair<Timestamp, Timer *> Entry;
             typedef std::set<Entry> TimerList;
             typedef std::pair<Timer*, int64_t> ActiveTimer;
-            //用set的原因是因为pair支持比较，能够放到set里面
+            //用set的原因是因为pair支持比较，能够自然放到set里面，不需要写比较器
             //优化可以用unoreded_set 写hash
-            //不需要set的排序功能
+            //这段功能并不需要set的排序功能
             typedef std::set<ActiveTimer> ActiveTimerSet;
 
             void addTimerInLoop(Timer *timer);

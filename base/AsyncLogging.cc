@@ -123,6 +123,7 @@ void AsyncLogging::threadFunc()
         {
             newBuffer1 = std::move(buffersToWrite.back());
             buffersToWrite.pop_back();
+            //FixedBuffer的reset函数，将指针拿到FixedBuffer的最前面
             newBuffer1->reset();
         }
         if (!newBuffer2)

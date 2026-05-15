@@ -25,7 +25,7 @@ FileUtil::AppendFile::~AppendFile()
 }
 
 
-//最底层，负责系统调用将字符串写到fp_中
+//调用write函数，统计写入的字节数
 void FileUtil::AppendFile::append(const char* logline, size_t len)
 {
     size_t written = 0;
@@ -53,6 +53,7 @@ void FileUtil::AppendFile::flush()
     fflush(fp_);
 }
 
+//最底层，通过系统调用fwrite_unlock将内容写到fp_里面
 size_t FileUtil::AppendFile::write(const char* logline, size_t len)
 {
     size_t n = fwrite_unlocked(logline, 1, len, fp_);

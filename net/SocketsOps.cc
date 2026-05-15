@@ -1,7 +1,7 @@
 #include "SocketsOps.h"
 #include "Logging.h"
-#include <Types.h>
-#include <Endian.h>
+#include "Types.h"
+#include "Endian.h"
 
 #include <fcntl.h>
 #include <arpa/inet.h>
