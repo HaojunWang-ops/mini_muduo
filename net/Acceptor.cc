@@ -43,7 +43,7 @@ namespace reactor
             loop_->assertInLoopThread();
             listening_ = true;
             acceptSocket_.listen();
-            acceptChannel_.enableRead();
+            acceptChannel_.enableReading();
         }
 
         void Acceptor::handleRead(Timestamp receivetime)

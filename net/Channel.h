@@ -32,9 +32,9 @@ namespace reactor
             
             void tie(const std::shared_ptr<void>&);
 
-            void enableRead() { events_ |= kReadEvent; update(); }
+            void enableReading() { events_ |= kReadEvent; update(); }
             void disableRead() { events_ &= ~kReadEvent; update(); }
-            void enableWrite() { events_ |= kWriteEvent; update(); }
+            void enableWrting() { events_ |= kWriteEvent; update(); }
             void disableWriting() {events_ &= ~kWriteEvent; update(); }
             void disableAll() {
                 events_ = kNoneEvent; 

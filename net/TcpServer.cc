@@ -54,7 +54,9 @@ namespace reactor
         {
             if (!started_)
             {
+                //初始化线程池
                 threadPool_->start(threadInitCallback_);
+
                 assert(!acceptor_->listening());
                 loop_->runInLoop([acceptor = acceptor_.get()]()
                                  { acceptor->listen(); });

@@ -70,7 +70,7 @@ namespace reactor
                 t_loopInThisThread = this;
             }
             wakeupChannel_->setReadCallback(std::bind(&EventLoop::handleRead, this));
-            wakeupChannel_->enableRead();
+            wakeupChannel_->enableReading();
         }
 
         EventLoop::~EventLoop()

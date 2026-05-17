@@ -176,7 +176,7 @@ namespace reactor
                     outputBuffer_.append((static_cast<const char *>(data)) + nwrote, remaining);
                     if (!channel_->isWriting())
                     {
-                        channel_->enableWrite();
+                        channel_->enableWrting();
                     }
                 }
             }
@@ -208,13 +208,13 @@ namespace reactor
 
         //与构造函数分开
         //原因：1.获取shared_from_this(),必须等到构造函数完成
-        //2.channel_->enableRead()要在子线程运行
+        //2.channel_->enableReading()要在子线程运行
         void TcpConnection::connectEstablished()
         {
             loop_->assertInLoopThread();
             assert(state_ == kConnecting);
             setState(kConnected);
-            channel_->enableRead();
+            channel_->enableReading();
             connectionCallback_(shared_from_this());
         }
 

@@ -84,7 +84,7 @@ TimerQueue::TimerQueue(EventLoop *loop)
     { 
         handleRead(receivetime); 
     });
-    timerfdChannel_.enableRead();
+    timerfdChannel_.enableReading();
 }
 
 TimerQueue::~TimerQueue()
