@@ -1,0 +1,180 @@
+# Benchmark
+
+本文记录 mini_muduo 的基础压测结果，主要验证：
+- 多线程 Reactor 是否能正常工作
+- 连接建立与关闭是否稳定
+- Echo Server 在并发连接下是否存在明显错误
+- 是否存在 fd 泄漏、ASan 报错、TSan报错等问题
+
+## 1. 测试环境
+
+| 项目         | 配置                                          |
+| ---------- | ------------------------------------------- |
+| OS         | Ubuntu / Linux VM                           |
+| CPU        | 13th Gen Intel(R) Core(TM) i7-13650HX       |
+| Memory     | 4GiB                                        |
+| Compiler   | g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 |
+| Build Type | Debug / Release /ASan Debug / TSan Debug                           |
+| Sanitizer  | AddressSanitizer/ThreadSanitizer            |
+| Network    | localhost                                   |
+
+> 注：当前测试主要用于功能正确性和稳定性验证，不作为严肃性能对比。
+
+## 2. 编译方式
+### 2.1 普通 Debug 构建
+```bash
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug -j
+```
+### 2.2 Release 构建
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release -j
+```
+### 2.3 Asan 构建
+```bash
+cmake -S . -B build-asan \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DENABLE_ASAN=ON
+
+cmake --build build-asan -j
+```
+
+运行：
+```bash
+ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/main 9981 4
+```
+### 2.4 Tsan 构建
+```bash
+cmake -S . -B build-tsan \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DENABLE_TSAN=ON
+
+cmake --build build-tsan -j
+```
+
+运行
+```bash
+./build-tsan/main 9981 4
+```
+___
+### 2.5 Echo Server 示例
+运行：
+```bash
+./build-debug/bin/echo_server 9981 4
+```
+
+或者 `Asan` 版本:
+```bash
+ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
+```
+
+参数含义：
+```text
+9981 :监听端口
+4 : io线程数
+```
+
+压测：
+```bash
+./build-debug/bin/ping_pong 127.0.0.1 9981 64 1000 10
+```
+
+参数含义:
+```text
+127.0.0.1 server ip
+9981      server port
+64        block size
+1000      connections
+10        duration seconds
+```
+## 3. 测试工具
+
+使用自写 echo client / 压测脚本进行测试。
+测试内容包括：
+- 短连接压测
+- 长连接 echo 压测
+- 多线程连接分布检查
+- fd 泄漏检查 
+- ASan 检查
+- TSan检查
+
+## 4. 测试结果
+
+### 4.1 Echo ping_pong 压测
+测试方式：使用单线程`epoll client`建立多条TCP连接，对`echo server`进行`ping-pong`测试模式压测。每个连接在收到完整`echo block`后继续发送下一块数据。
+该测试主要验证：
++ `TcpConnection`生命周期
++ `Buffer`收发
++ 非阻塞写
++ `outputBuffer_`读写
++ `EPOLLOUT`开关
++ 多连接稳定性
+不代表极限吞吐
+
+| block size | connections | duration | throughput | messages | closed |
+| ---------: | ----------: | -------: | ---------: | ---------: | -----: |
+|        64B |         100 |      10s |  1.44MiB/s |     235597 |      0 |
+|        64B |        1000 |      30s |  1.17MiB/s |     576287 |      0 |
+|        1KB |        1000 |      30s |  8.82MiB/s |     271325 |      0 |
+|       64KB |         100 |      30s | 17.21MiB/s |       8315 |      0 |
+|        1MB |          20 |      30s | 16.93MiB/s |        509 |      0 |
+### 4.2 ASan 检查
+测试内容:
+- heap-use-after-free
+- stack-use-after-scope
+- global-buffer-overflow
+- double-free
+- memory leak
+
+结果：
+```text
+ASan 检查：在 64B × 1000 连接、64KB × 100 连接、1MB × 20 连接等 echo 压测场景下，server 无 ASan 报错、无崩溃、无断言失败
+```
+### 4.3 Tsan 检查
+测试内容：
+- data race
+- 线程间未同步读写
+- 锁使用错误
+
+结果：
+```text
+Tsan检查：在64B × 1000 连接、64KB × 100 连接、1MB × 20 连接等 echo 压测场景下,EventLoop / TcpConnection 路径无明显 data race
+```
+### 4.4 fd 泄漏检查
+观察命令：
+```
+pidof echo_server
+watch -n 1 'ls /proc/$(pidof echo_server)/fd | wc -l'
+```
+
+验证方式：
+```
+压测过程中 fd 数随连接数上升；压测结束后 fd 数回落到初始水平附近。
+```
+
+结果：
+```
+压测结束后 fd 正常回落，无明显连接 fd 泄漏。
+```
+## 5. 结果分析
+
+当前 benchmark 主要证明：
+1. Reactor 主流程可以正常工作。
+2. TcpServer / TcpConnection 生命周期基本正确。  
+3. 多线程 EventLoopThreadPool 可以正常分发连接。    
+4. Echo Server 在基础并发场景下没有明显崩溃、fd 泄漏、 ASan 报错、TSan报错。   
+
+当前 benchmark 的局限：
+1. 测试环境是本地 VM，性能数据不代表真实生产环境。
+2. 当前主要关注正确性和稳定性，吞吐数据仅作参考。
+3. 尚未系统测试长时间运行、极高并发、慢客户端、半关闭连接等场景。
+4. 尚未加入 p50 / p99 latency 统计。
+## 6. 后续改进
+
+- 增加自动化 benchmark 脚本
+- 增加 p50 / p95 / p99 延迟统计
+- 增加长时间稳定性测试
+- 增加慢客户端测试
+- 增加大消息测试   
+- 增加与原生 echo server / muduo echo server 的对比

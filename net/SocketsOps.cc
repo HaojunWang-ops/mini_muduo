@@ -199,7 +199,7 @@ void sockets::toIpPort(char* buf, size_t size, const struct sockaddr* addr)
         size_t end = strlen(buf);
         assert(size > end);
         uint16_t port = sockets::networkToHost16(AF->sin_port);
-        snprintf(buf + end, size - end, " :%hu", port);
+        snprintf(buf + end, size - end, ":%hu", port);
         return;
     }
     *buf = '[';
@@ -208,7 +208,7 @@ void sockets::toIpPort(char* buf, size_t size, const struct sockaddr* addr)
     size_t end = strlen(buf);
     assert(size > end);
     uint16_t port = sockets::networkToHost16(AF->sin6_port);
-    snprintf(buf + end, size - end, "] :%hu", port);
+    snprintf(buf + end, size - end, "]:%hu", port);
 }
 
 void sockets::toIp(char* buf, size_t size, const struct sockaddr* addr)

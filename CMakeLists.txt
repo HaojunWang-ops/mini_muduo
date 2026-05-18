@@ -123,6 +123,12 @@ if (BUILD_SCRIPTS)
     enable_sanitizes(ping_pong)
 endif()
 
+include(CTest)
+
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
+
 #[[
 cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON ..
 

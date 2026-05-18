@@ -75,7 +75,7 @@ namespace reactor
     inline double timeDifference(Timestamp high, Timestamp low)
     {
         int64_t diff = high.microSecondsSinceEpoch() - low.microSecondsSinceEpoch();
-        return static_cast<double>(diff / Timestamp::kMicroSecondsPerSecond);
+        return static_cast<double>(diff) / Timestamp::kMicroSecondsPerSecond;
     }
 
     // add seconds to TimeStamp

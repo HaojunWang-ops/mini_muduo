@@ -632,8 +632,12 @@ cmake --build build-debug -j
 ```
 ### 8.2 Release 构建
 ```bash
-cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 cmake --build build-release -j
+```
+或者
+```bash
+./scripts/release_build.sh
 ```
 ### 8.3 Asan 构建
 ```bash
@@ -643,10 +647,13 @@ cmake -S . -B build-asan \
 
 cmake --build build-asan -j
 ```
-
+或者
+```bash
+./scripts/asan_build.sh
+```
 运行：
 ```bash
-ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/main 9981 4
+ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
 ```
 ### 8.4 Tsan 构建
 ```bash
@@ -656,10 +663,13 @@ cmake -S . -B build-tsan \
 
 cmake --build build-tsan -j
 ```
-
+或者
+```bash
+./scripts/tsan_build.sh
+```
 运行
 ```bash
-./build-tsan/main 9981 4
+./build-tsan/bin/echo_server 9981 4
 ```
 ___
 ## 9. Echo Server 示例
@@ -691,6 +701,14 @@ ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
 64        block size
 1000      connections
 10        duration seconds
+```
+也可以使用脚本：
+```bash
+#构建release版本
+./scripts/release_build.sh
+#开始压测
+#压测5组数据
+./scripts/run_echo_becnch.sh
 ```
 ___
 ## 10. 测试与验证
@@ -750,6 +768,26 @@ watch -n 1 'ls /proc/$(pidof echo_server)/fd | wc -l'
 压测结束后 fd 正常回落，无明显连接 fd 泄漏。
 ```
 ___
+
+## 11. GTest测试
+
+项目使用 GoogleTest 对部分基础组件进行了单元测试，主要覆盖：
+
+- `Buffer`：append、retrieve、retrieveAll、扩容、索引变化等基础行为
+- `LogStream`：整数、字符串、指针、边界值等格式化输出
+- `Timestamp`：时间差计算、时间增加、字符串格式化
+- `InetAddress`：IP / Port 构造与转换
+
+测试主要用于验证基础组件的不变量和边界行为。复杂网络路径如 `TcpConnection` 生命周期、`EventLoopThreadPool` 分发、fd 泄漏等，主要通过 echo benchmark、ASan、TSan 和手动压测验证。
+
+### 构建并运行测试
+
+```bash
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build-debug -j
+ctest --test-dir build-debug --output-on-failure
+___
+
 ## 12. 项目难点
 
 ### 12.1 TcpConnection 生命周期
