@@ -455,13 +455,174 @@ end
 ### 7.6 跨线程唤醒流程
 ```mermaid
 flowchart TD
-A["其他线程调用queueInLoop(cb)"] --> B["加锁MockLockGuard 将cb加入到任务队列pendingFunctors_.push_back(std::move(cb))"]
-B --> C["如果在其他线程 或者 ]
+A["其他线程调用 EventLoop::queueInLoop(cb)"] --> B["MutexLockGuard 加锁"]
+B --> C["pendingFunctors_.push_back(std::move(cb))"]
+C --> D["释放锁"]
+D --> E["判断：!isInLoopThread() || callingPendingFunctors_"]
+E --> F["wakeup()"]
+F --> G["向 wakeupFd_ 写入 8 字节数据"]
+
+G --> H["IO 线程的 poll/epoll_wait 被唤醒"]
+H --> I["wakeupFd_ 产生可读事件"]
+I --> J["wakeupChannel_->handleEvent()"]
+J --> K["EventLoop::handleRead() 读掉 wakeupFd_"]
+K --> L["当前 activeChannels_ 处理完"]
+L --> M["EventLoop::doPendingFunctors()"]
+
+subgraph doPendingFunctors["doPendingFunctors() 内部流程"]
+M --> N["callingPendingFunctors_ = true"]
+N --> O["加锁，将 pendingFunctors_ swap 到局部 functors"]
+O --> P["释放锁"]
+P --> Q["依次执行 functors 中的任务"]
+Q --> R["callingPendingFunctors_ = false"]
+end
 ```
 ### 7.7 定时器流程
+```mermaid
+flowchart TD
+A["addTimer(cb, when, interval)"] --> A1["new Timer(...)"]
+A1 --> A2["返回 TimerId(timer, sequence)"]
+A1 --> B["loop_->runInLoop(addTimerInLoop(timer))"]
+
+B --> C["addTimerInLoop()"]
+C --> D["insert(timer)"]
+D --> E["返回 earliestChanged：是否成为最早过期 timer"]
+E -->|是| F["resetTimerfd(timerfd_, timer->expiration())"]
+E -->|否| G["nothing to do"]
+
+H["loop() 中 epoll/poll 发现 timerfd 可读"] --> I["TimerQueue::handleRead()"]
+I --> J["readTimerfd() 读走 timerfd 数据"]
+J --> K["getExpired(now)"]
+K --> K1["从 timers_ / activeTimers_ 中移除所有到期 timer"]
+K1 --> L["callingExpiredTimers_ = true"]
+L --> M["依次执行 expired timers 的 callback"]
+M --> N["callingExpiredTimers_ = false"]
+N --> O["reset(expired, now)"]
+
+O --> P["重复 timer 且不在 cancelingTimers_ 中"]
+P -->|是| Q["timer->restart(now)，重新 insert(timer)"]
+P -->|否| R["delete timer"]
+
+Q --> S["如果 timers_ 非空，取新的最早过期时间"]
+R --> S
+S --> T["resetTimerfd(timerfd_, nextExpire)"]
+
+U["cancelTimer(timerId)"] --> V["loop_->runInLoop(cancelTimerInLoop(timerId))"]
+V --> W["cancelTimerInLoop()"]
+W --> X["能否在 activeTimers_ 中找到 Timer"]
+X -->|是| Y["从 timers_ 和 activeTimers_ 中删除"]
+Y --> Z["delete Timer"]
+X -->|否| AA["是否 callingExpiredTimers_"]
+AA -->|是| AB["加入 cancelingTimers_，防止 reset() 重新加入"]
+AA -->|否| AC["nothing to do"]
+```
 ### 7.8 AsyncLogging 前后端异步写日志流程
+```mermaid
+flowchart TD
+A["AsyncLogging::start()"] --> B["启动后端线程 threadFunc()"]
+
+B --> C["初始化 LogFile"]
+C --> D["创建 newBuffer1 和 newBuffer2"]
+D --> E["newBuffer1/newBuffer2 清零"]
+E --> F["初始化 buffersToWrite，reserve(16)"]
+F --> G["进入 while(running_) 循环"]
+
+subgraph front["前端线程：AsyncLogging::append()"]
+H["append(logline, len)"] --> I["加锁 mutex_"]
+I --> J{"currentBuffer_ 剩余空间是否足够？"}
+
+J -->|是| K["currentBuffer_->append(logline, len)"]
+K --> L["释放锁，返回"]
+
+J -->|否| M["buffers_.push_back(move(currentBuffer_))"]
+M --> N{"nextBuffer_ 是否存在？"}
+N -->|是| O["currentBuffer_ = move(nextBuffer_)"]
+N -->|否| P["currentBuffer_.reset(new Buffer)"]
+O --> Q["currentBuffer_->append(logline, len)"]
+P --> Q
+Q --> R["cond_.notify() 唤醒后端线程"]
+R --> S["释放锁，返回"]
+end
+
+subgraph backend["后端线程：threadFunc()"]
+G --> T["加锁 mutex_"]
+T --> U{"buffers_ 是否为空？"}
+U -->|是| V["cond_.waitForSeconds(flushInterval_)"]
+V --> W["被 notify 或超时后重新获得锁"]
+U -->|否| W
+
+W --> X["buffers_.push_back(move(currentBuffer_))"]
+X --> Y["currentBuffer_ = move(newBuffer1)"]
+Y --> Z["buffersToWrite.swap(buffers_)"]
+Z --> AA{"nextBuffer_ 是否为空？"}
+AA -->|是| AB["nextBuffer_ = move(newBuffer2)"]
+AA -->|否| AC["保持 nextBuffer_ 不变"]
+AB --> AD["释放锁"]
+AC --> AD
+
+AD --> AE{"buffersToWrite 数量是否过多？"}
+AE -->|是| AF["丢弃多余 buffer，只保留前两个"]
+AE -->|否| AG["继续"]
+AF --> AH["将 buffersToWrite 中内容写入 LogFile"]
+AG --> AH
+
+AH --> AI{"newBuffer1 是否为空？"}
+AI -->|是| AJ["从 buffersToWrite 取回一个 buffer 给 newBuffer1，并 reset()"]
+AI -->|否| AK["保持 newBuffer1"]
+
+AJ --> AL{"newBuffer2 是否为空？"}
+AK --> AL
+AL -->|是| AM["从 buffersToWrite 取回一个 buffer 给 newBuffer2，并 reset()"]
+AL -->|否| AN["保持 newBuffer2"]
+
+AM --> AO["buffersToWrite.clear()"]
+AN --> AO
+AO --> AP["output.flush()"]
+AP --> G
+end
+
+```
 ### 7.9 EventLoopThreadPool 分配连接流程
-### 7.10 Channel update 到 Poller 的流程
+```mermaid
+flowchart TD
+A["EventLoopThreadPool::start(cb)"] --> B["循环创建 numThreads 个 EventLoopThread"]
+B --> C["auto t = make_unique<EventLoopThread>(cb, name)"]
+C --> D["EventLoop* loop = t->startLoop()"]
+D --> E["loops_.push_back(loop)"]
+E --> F["threads_.push_back(move(t))"]
+
+subgraph startLoop["EventLoopThread::startLoop()"]
+D --> G["thread_.start() 启动子线程"]
+G --> H["Thread::start() 内部等待 latch"]
+H --> I["latch.wait() 返回：说明子线程 tid 已经设置完成"]
+I --> J["startLoop() 加锁检查 loop_"]
+J --> K{"loop_ 是否已经被子线程赋值？"}
+K -->|否| L["cond_.wait() 等待子线程创建 EventLoop"]
+L --> K
+K -->|是| M["返回 loop_ 给 EventLoopThreadPool"]
+end
+
+subgraph threadStart["Thread::start() / 子线程启动流程"]
+G --> N["创建 ThreadData：保存 func、name、tid 指针、latch 指针"]
+N --> O["pthread_create(..., startThread, ThreadData*)"]
+O --> P["子线程进入 startThread()"]
+P --> Q["ThreadData::runInThread()"]
+Q --> R["设置 tid"]
+R --> S["latch.countDown() 唤醒 Thread::start()"]
+S --> T["设置线程名"]
+T --> U["执行 func_()"]
+end
+
+subgraph threadFunc["EventLoopThread::threadFunc()"]
+U --> V["func_ 实际是 EventLoopThread::threadFunc()"]
+V --> W["在子线程栈上创建 EventLoop loop"]
+W --> X["执行 ThreadInitCallback cb(&loop)"]
+X --> Y["加锁：loop_ = &loop"]
+Y --> Z["cond_.notify() 唤醒 startLoop()"]
+Z --> AA["loop.loop() 开始事件循环"]
+AA --> AB["loop.loop() 退出后，loop_ = nullptr"]
+end
+```
 ___
 ## 8. 编译运行
 ### 8.1 普通 Debug 构建
