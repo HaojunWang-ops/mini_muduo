@@ -786,6 +786,7 @@ ___
 cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build-debug -j
 ctest --test-dir build-debug --output-on-failure
+```
 ___
 
 ## 12. 项目难点
