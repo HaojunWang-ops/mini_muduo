@@ -157,6 +157,24 @@ watch -n 1 'ls /proc/$(pidof echo_server)/fd | wc -l'
 ```
 压测结束后 fd 正常回落，无明显连接 fd 泄漏。
 ```
+### 4.5 GTest测试
+项目使用 GoogleTest 对部分基础组件进行了单元测试，主要覆盖：
+
+- `Buffer`：append、retrieve、retrieveAll、扩容、索引变化等基础行为
+- `LogStream`：整数、字符串、指针、边界值等格式化输出
+- `Timestamp`：时间差计算、时间增加、字符串格式化
+- `InetAddress`：IP / Port 构造与转换
+
+测试主要用于验证基础组件的不变量和边界行为。复杂网络路径如 `TcpConnection` 生命周期、`EventLoopThreadPool` 分发、fd 泄漏等，主要通过 echo benchmark、ASan、TSan 和手动压测验证。
+
+### 构建并运行测试
+
+```bash
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build-debug -j
+ctest --test-dir build-debug --output-on-failure
+```
+
 ## 5. 结果分析
 
 当前 benchmark 主要证明：
