@@ -528,3 +528,7 @@ ___
 + `TimerQueue` 是定时器管理器，内部持有 `timerfd_` 和 `timerfdChannel_`，通过 `EventLoop` 监听 `timerfd_` 的读事件。它用 `timers_` 按到期时间维护所有活跃 `Timer`，用 `activeTimers_` 维护当前有效 `Timer`，用 `cancelingTimers_` 处理回调过程中取消 `Timer` 的情况。
    `addTimer()` 负责添加定时器，最终通过 `addTimerInLoop()` 在 `EventLoop` 线程内调用 `insert()`。`insert()` 会把 `Timer` 同时加入 `timers_` 和 `activeTimers_`，并返回新 `Timer` 是否成为最早到期 `Timer`；如果是，就重新设置 `timerfd_`。
    `timerfd_` 到期后触发 `handleRead()`。`handleRead()` 先读取 `timerfd_` 清除可读事件，然后调用 `getExpired()` 取出所有已到期 `Timer`，并从 `timers_` 和 `activeTimers_` 中移除它们。随后执行这些 `Timer` 的回调函数。执行完后，`reset()` 会把需要重复执行且没有被取消的 `Timer restart` 后重新 `insert`；一次性 `Timer` 或已取消 `Timer` 则被释放。
+
+## 8.问题与回答
+### 1.为send发送内容一定要在自己所在线程呢
+真正操作`fd`、`Channel`、`outputBuffer`、状态机的`sendInLoop`一定要在`TcpConnection`所在的`EventLoop`线程执行。
