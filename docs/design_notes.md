@@ -551,6 +551,7 @@ Timestamp 是一个轻量级时间点类。内部用 `int64_t microSecondsSinceE
   - addTimer() 负责添加定时器，最终通过 addTimerInLoop() 在 EventLoop 线程内调用 insert()。insert() 会把 Timer 同时加入 timers_ 和 activeTimers_，并返回新 Timer 是否成为最早到期 Timer；如果是，就重新设置 timerfd_。
   - timerfd_ 到期后触发 handleRead()。handleRead() 先读取 timerfd_ 清除可读事件，然后调用 getExpired() 取出所有已到期 Timer，并从 timers_ 和 activeTimers_ 中移除它们。随后执行这些 Timer 的回调函数。执行完后，reset() 会把需要重复执行且没有被取消的 Timer 重新 restart 后重新 insert；一次性 Timer 或已取消 Timer 则被释放。
 
-  ## 8.问题与回答
-  1.为什么send必须要回到TcpConnection所在线程发送内容呢？
-  所有真正操作fd、Channel、OutputBuffer、状态机的sendInLoop都必须回到TcpConnection所在的EventLoop。
+## 8.问题与回答
+
+1.为什么send必须要回到TcpConnection所在线程发送内容呢？
++ 所有真正操作fd、Channel、OutputBuffer、状态机的sendInLoop都必须回到TcpConnection所在的EventLoop。
