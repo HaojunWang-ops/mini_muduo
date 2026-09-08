@@ -88,6 +88,41 @@ ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
 1000      connections
 10        duration seconds
 ```
+
+### 2.6 可复现的性能与稳定性测试
+
+使用 `scripts/run_echo_bench.sh` 启动独立的服务端并运行 ping-pong 场景。默认执行基础吞吐矩阵；每个场景结束后会采集服务端资源指标，并将结果及服务端日志保存到独立目录。
+
+```bash
+./scripts/run_echo_bench.sh ./build-release
+```
+
+用 `BENCH_CASES` 覆盖默认矩阵。每个场景格式为
+`block_size,connections,duration_seconds`，多个场景以空格分隔：
+
+```bash
+PORT=9981 THREADS=4 \
+BENCH_CASES="64,1000,30 65536,100,30" \
+./scripts/run_echo_bench.sh ./build-release
+```
+
+用可选的 `SOAK_CASE` 增加长时间稳定性场景；建议先从 10 分钟开始，再逐步延长。`BENCH_LOG_DIR` 可指定产物目录，便于保留和对比结果。
+
+```bash
+BENCH_CASES="64,1000,30" \
+SOAK_CASE="64,1000,600" \
+BENCH_LOG_DIR=/tmp/mini-muduo-soak \
+./scripts/run_echo_bench.sh ./build-release
+```
+
+脚本输出并记录以下指标：
+
+- `fd_count`：服务端打开的文件描述符数量；结束后应回落至接近 `baseline`。
+- `rss_kib`、`vm_size_kib`：常驻/虚拟内存；长时间运行中不应持续无界增长。
+- `threads`：服务端线程数；应与配置的 I/O 线程数及基础线程保持一致。
+- `cpu_percent`：自进程启动以来的平均 CPU 使用率，仅用于同机、同配置下的趋势对比。
+
+结果保存在 `benchmark-results.txt`，服务端日志保存在同目录的 `server.log`。性能结果应同时记录 CPU、内存、编译模式、连接数和持续时间；本地 VM 数据仅用于回归比较，不能代表生产吞吐上限。
 ## 3. 测试工具
 
 使用自写 echo client / 压测脚本进行测试。
@@ -112,14 +147,20 @@ ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
 + 多连接稳定性
 不代表极限吞吐
 
-| block size | connections | duration | throughput | messages | closed |
-| ---------: | ----------: | -------: | ---------: | ---------: | -----: |
-|        64B |         100 |      10s |  1.44MiB/s |     235597 |      0 |
-|        64B |        1000 |      30s |  1.17MiB/s |     576287 |      0 |
-|        1KB |        1000 |      30s |  8.82MiB/s |     271325 |      0 |
-|       64KB |         100 |      30s | 17.21MiB/s |       8315 |      0 |
-|        1MB |          20 |      30s | 16.93MiB/s |        509 |      0 |
-### 4.2 ASan 检查
+在本地 Ubuntu VM 上使用 Release 构建运行默认矩阵。服务端使用 4 个 I/O 线程，单线程 `epoll` 客户端通过 loopback 发起连接；机器对该 VM 暴露 2 个逻辑 CPU。每行的吞吐、消息数均为该轮最终输出，不能与不同机器或不同日志配置直接比较。
+
+| block size | connections | duration | throughput | messages | messages/s | closed |
+| ---------: | ----------: | -------: | ---------: | --------: | ---------: | -----: |
+|        64B |         100 |   10.001s |  1.91 MiB/s |   313,360 |  31,333.96 |      0 |
+|        64B |        1000 |   30.004s |  1.92 MiB/s |   941,644 |  31,384.30 |      0 |
+|        1KB |        1000 |   30.023s | 13.40 MiB/s |   411,974 |  13,721.76 |      0 |
+|       64KB |         100 |   30.030s | 22.97 MiB/s |    11,036 |     367.50 |      0 |
+|        1MB |          20 |   30.772s | 21.22 MiB/s |       653 |      21.22 |      0 |
+
+### 4.2 资源与连接稳定性
+
+同一轮压测中，服务端基线为 21 个 FD、19,728 KiB RSS、390,804 KiB 虚拟内存、6 个线程。每个场景结束并等待 2 秒后，FD 均回落到 21；RSS 位于 20,372–23,544 KiB，虚拟内存位于 391,068–393,708 KiB，线程数保持 6，所有场景 `closed=0`。该结果说明该默认矩阵下连接释放路径没有观察到 FD 残留或进程异常；它不等同于长时间泄漏证明，长稳测试仍应使用 `SOAK_CASE` 单独执行。
+### 4.3 ASan 检查
 测试内容:
 - heap-use-after-free
 - stack-use-after-scope
@@ -131,7 +172,7 @@ ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 ./build-asan/bin/echo_server 9981 4
 ```text
 ASan 检查：在 64B × 1000 连接、64KB × 100 连接、1MB × 20 连接等 echo 压测场景下，server 无 ASan 报错、无崩溃、无断言失败
 ```
-### 4.3 Tsan 检查
+### 4.4 Tsan 检查
 测试内容：
 - data race
 - 线程间未同步读写
@@ -141,7 +182,7 @@ ASan 检查：在 64B × 1000 连接、64KB × 100 连接、1MB × 20 连接等 
 ```text
 Tsan检查：在64B × 1000 连接、64KB × 100 连接、1MB × 20 连接等 echo 压测场景下,EventLoop / TcpConnection 路径无明显 data race
 ```
-### 4.4 fd 泄漏检查
+### 4.5 fd 泄漏检查
 观察命令：
 ```
 pidof echo_server
@@ -157,7 +198,7 @@ watch -n 1 'ls /proc/$(pidof echo_server)/fd | wc -l'
 ```
 压测结束后 fd 正常回落，无明显连接 fd 泄漏。
 ```
-### 4.5 GTest测试
+### 4.6 GTest测试
 项目使用 GoogleTest 对部分基础组件进行了单元测试，主要覆盖：
 
 - `Buffer`：append、retrieve、retrieveAll、扩容、索引变化等基础行为

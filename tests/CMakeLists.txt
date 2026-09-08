@@ -23,3 +23,8 @@ target_include_directories(unit_tests
 
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
+
+add_test(
+    NAME echo_benchmark_script
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/run_echo_bench_test.sh ${CMAKE_BINARY_DIR}
+)
